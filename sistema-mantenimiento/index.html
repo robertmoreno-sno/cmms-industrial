@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CMMS Mantenimiento Industrial | Sistema Multiusuario y Control de Paradas</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- ==========================================================================
+       HEADER PRINCIPAL & NAVEGACIÓN DE ROLES
+       ========================================================================== -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand-area">
+        <div class="brand-icon">⚙️</div>
+        <div class="brand-title">
+          <h1>CMMS Mantenimiento Industrial</h1>
+          <p>Control de Solicitudes, Paradas, Preventivo y Costos en la Nube</p>
+        </div>
+      </div>
+
+      <!-- Selector de Módulo / Pestañas según el Rol Activo -->
+      <nav class="nav-tabs-container" id="navTabs">
+        <button class="nav-tab-btn active" data-view="produccion" id="tabBtnProduccion">
+          <span>📋</span> Portal Solicitudes
+          <span class="nav-tab-badge" id="badgeCountProd">0</span>
+        </button>
+        <button class="nav-tab-btn" data-view="gerencia" id="tabBtnGerencia">
+          <span>🛠️</span> Mantenimiento / OTs
+          <span class="nav-tab-badge" id="badgeCountGerencia">0</span>
+        </button>
+        <button class="nav-tab-btn" data-view="preventivo" id="tabBtnPreventivo">
+          <span>📅</span> Preventivo
+          <span class="nav-tab-badge badge-warning-count" id="badgeCountPreventivo">0</span>
+        </button>
+        <button class="nav-tab-btn" data-view="metricas" id="tabBtnMetricas">
+          <span>📊</span> Métricas & KPIs
+        </button>
+        <button class="nav-tab-btn" data-view="admin" id="tabBtnAdmin">
+          <span>⚙️</span> Administrador
+        </button>
+      </nav>
+
+      <!-- Control de Entorno, Perfil / Rol y Estado de Conexión -->
+      <div class="header-right-tools">
+        <!-- Selector de Entorno (Real vs Demo) -->
+        <div class="env-badge-button env-demo" id="btnOpenModalEnv" title="Haga clic para alternar entre Entorno Real en Cero y Demostración">
+          <span class="env-icon" id="headerEnvIcon">🧪</span>
+          <div class="env-info">
+            <span class="env-title" id="headerEnvName">Modo Demostración</span>
+            <span class="env-action-text" id="headerEnvAction">Cambiar a Real 🔄</span>
+          </div>
+        </div>
+
+        <!-- Selector de Rol (Producción / Mantenimiento / Admin) -->
+        <div class="role-badge-button" id="btnOpenModalRole">
+          <span class="role-icon" id="headerRoleIcon">📋</span>
+          <div class="role-info">
+            <span class="role-title" id="headerRoleName">Producción</span>
+            <span class="role-action-text">Cambiar Perfil 🔑</span>
+          </div>
+        </div>
+
+        <div class="header-status-badge">
+          <span class="status-indicator-dot"></span>
+          <span id="headerLiveStatus">Conectando...</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==========================================================================
+       CONTENIDO PRINCIPAL DINÁMICO
+       ========================================================================== -->
+  <main class="main-wrapper">
+
+    <!-- ==========================================================================
+         VISTA 1: PORTAL DE SOLICITUDES (PRODUCCIÓN Y DEPARTAMENTOS EXTERNOS)
+         ========================================================================== -->
+    <section class="view-section active" id="viewProduccion">
+      <div class="section-topbar">
+        <div class="section-title">
+          <h2><span>📋</span> Solicitudes de Atención de Averías y Servicios</h2>
+          <p>Generación de avisos de avería para equipos de planta y seguimiento del estado de reparación</p>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn btn-primary" id="btnOpenModalNuevaSolicitudProd">
+            <span>➕</span> Generar Solicitud de Falla
+          </button>
+        </div>
+      </div>
+
+      <!-- Barra de Filtros de Producción -->
+      <div class="filter-bar">
+        <div class="search-input-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchProd" placeholder="Buscar por equipo, falla, folio o solicitante...">
+        </div>
+        <div class="filter-select-wrap">
+          <label for="filterAreaProd">Área:</label>
+          <select id="filterAreaProd" class="filter-select">
+            <option value="Todas">Todas las Áreas</option>
+          </select>
+        </div>
+        <div class="filter-select-wrap">
+          <label for="filterEstadoProd">Estado:</label>
+          <select id="filterEstadoProd" class="filter-select">
+            <option value="Todos">Todos los Estados</option>
+            <option value="Pendiente">🕒 Pendiente</option>
+            <option value="Asignada">👷 Asignada</option>
+            <option value="En Intervención">⚙️ En Intervención</option>
+            <option value="Culminada">✅ Culminada</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Tabla de Solicitudes de Producción -->
+      <div class="table-card">
+        <div class="table-header-info">
+          <h3>Historial de Solicitudes de Atención</h3>
+          <span class="text-muted" id="prodTableCount">0 solicitudes</span>
+        </div>
+        <div class="table-responsive">
+          <table class="custom-table" id="tableProduccion">
+            <thead>
+              <tr>
+                <th>Folio / ID</th>
+                <th>Fecha y Hora</th>
+                <th>Área</th>
+                <th>Equipo</th>
+                <th>Descripción de Falla</th>
+                <th>Criticidad</th>
+                <th>Estado Actual</th>
+                <th>Atendido Por</th>
+                <th>Tiempo Parada</th>
+                <th style="text-align: right;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyProduccion">
+              <!-- Renderizado dinámico -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+         VISTA 2: BANDEJA DE MANTENIMIENTO (ÓRDENES DE TRABAJO Y ASIGNACIÓN)
+         ========================================================================== -->
+    <section class="view-section" id="viewGerencia">
+      <div class="section-topbar">
+        <div class="section-title">
+          <h2><span>🛠️</span> Control Operativo de Órdenes de Trabajo (OT)</h2>
+          <p>Asignación de técnicos internos o contratistas externos, registro de costos y cierre técnico de paradas</p>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn btn-outline" id="btnExportCSVGerencia">
+            <span>📥</span> Exportar a Excel
+          </button>
+          <button class="btn btn-primary" id="btnOpenModalNuevaSolicitudGerencia">
+            <span>➕</span> Registrar Solicitud Manual
+          </button>
+        </div>
+      </div>
+
+      <!-- Filtros Avanzados de Gerencia -->
+      <div class="filter-bar">
+        <div class="search-input-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchGerencia" placeholder="Buscar por código, equipo, técnico o síntoma...">
+        </div>
+        <div class="filter-select-wrap">
+          <label for="filterAreaGerencia">Área:</label>
+          <select id="filterAreaGerencia" class="filter-select">
+            <option value="Todas">Todas las Áreas</option>
+          </select>
+        </div>
+        <div class="filter-select-wrap">
+          <label for="filterEstadoGerencia">Estado:</label>
+          <select id="filterEstadoGerencia" class="filter-select">
+            <option value="Todos">Todos los Estados</option>
+            <option value="Pendiente">🕒 Pendientes</option>
+            <option value="Asignada">👷 Asignadas</option>
+            <option value="En Intervención">⚙️ En Intervención</option>
+            <option value="Culminada">✅ Culminadas</option>
+          </select>
+        </div>
+        <div class="filter-select-wrap">
+          <label for="filterCriticidadGerencia">Criticidad:</label>
+          <select id="filterCriticidadGerencia" class="filter-select">
+            <option value="Todas">Todas</option>
+            <option value="Crítica">🔴 Crítica / Parada</option>
+            <option value="Alta">🟠 Alta</option>
+            <option value="Media">🟡 Media</option>
+            <option value="Baja">🟢 Baja</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Tabla Operativa de Gerencia -->
+      <div class="table-card">
+        <div class="table-header-info">
+          <h3>Órdenes de Trabajo y Solicitudes de Planta</h3>
+          <span class="text-muted" id="gerenciaTableCount">0 registros</span>
+        </div>
+        <div class="table-responsive">
+          <table class="custom-table" id="tableGerencia">
+            <thead>
+              <tr>
+                <th>Folio</th>
+                <th>Fecha Reporte</th>
+                <th>Área</th>
+                <th>Equipo</th>
+                <th>Falla / Síntoma</th>
+                <th>Criticidad</th>
+                <th>Estado</th>
+                <th>Ejecutor / Responsable</th>
+                <th>Intervención (Inicio - Fin)</th>
+                <th>Horas Parada</th>
+                <th style="text-align: right; min-width: 170px;">Acciones Técnicas</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyGerencia">
+              <!-- Renderizado dinámico -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+         VISTA 3: MÓDULO DE MANTENIMIENTO PREVENTIVO
+         ========================================================================== -->
+    <section class="view-section" id="viewPreventivo">
+      <div class="section-topbar">
+        <div class="section-title">
+          <h2><span>📅</span> Planes de Mantenimiento Preventivo</h2>
+          <p>Programación de revisiones periódicas, checklists de inspección y generación de OTs preventivas</p>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn btn-primary" id="btnNuevoPreventivo">
+            <span>➕</span> Nuevo Plan Preventivo
+          </button>
+        </div>
+      </div>
+
+      <!-- Tarjetas Resumen de Preventivo -->
+      <div class="kpi-grid">
+        <div class="kpi-card kpi-preventivo-total">
+          <div class="kpi-icon-wrap">📋</div>
+          <div class="kpi-content">
+            <h3>Total Planes Registrados</h3>
+            <div class="kpi-value" id="kpiPrevTotal">0</div>
+            <div class="kpi-subtext">Planes activos en planta</div>
+          </div>
+        </div>
+        <div class="kpi-card kpi-preventivo-aldia">
+          <div class="kpi-icon-wrap">🟢</div>
+          <div class="kpi-content">
+            <h3>Planes al Día</h3>
+            <div class="kpi-value text-success" id="kpiPrevAlDia">0</div>
+            <div class="kpi-subtext">Sin retrasos programados</div>
+          </div>
+        </div>
+        <div class="kpi-card kpi-preventivo-proximos">
+          <div class="kpi-icon-wrap">🟡</div>
+          <div class="kpi-content">
+            <h3>Próximos a Vencer</h3>
+            <div class="kpi-value text-warning" id="kpiPrevProximos">0</div>
+            <div class="kpi-subtext">En los próximos 5 días</div>
+          </div>
+        </div>
+        <div class="kpi-card kpi-preventivo-vencidos">
+          <div class="kpi-icon-wrap">🔴</div>
+          <div class="kpi-content">
+            <h3>Planes Vencidos</h3>
+            <div class="kpi-value text-danger" id="kpiPrevVencidos">0</div>
+            <div class="kpi-subtext">Requieren atención urgente</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla de Planes Preventivos -->
+      <div class="table-card" style="margin-top: 1.5rem;">
+        <div class="table-header-info">
+          <h3>Calendario y Planes Programados</h3>
+          <span class="text-muted" id="prevTableCount">0 planes</span>
+        </div>
+        <div class="table-responsive">
+          <table class="custom-table" id="tablePreventivos">
+            <thead>
+              <tr>
+                <th>Código Plan</th>
+                <th>Título del Plan / Tareas</th>
+                <th>Área y Equipo</th>
+                <th>Frecuencia</th>
+                <th>Última Ejecución</th>
+                <th>Próxima Fecha</th>
+                <th>Estado</th>
+                <th>Ejecutor Previsto</th>
+                <th>Costo Est.</th>
+                <th style="text-align: right; min-width: 150px;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyPreventivos">
+              <!-- Renderizado dinámico -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+         VISTA 4: MÉTRICAS, HORAS DE PARADA, MTTR, MTBF Y COSTOS
+         ========================================================================== -->
+    <section class="view-section" id="viewMetricas">
+      <div class="section-topbar">
+        <div class="section-title">
+          <h2><span>📊</span> Dashboard de Analítica de Mantenimiento & KPIs</h2>
+          <p>Análisis de horas de parada, confiabilidad (MTTR, MTBF), desempeño de técnicos y costos de terceros</p>
+        </div>
+        <div class="topbar-actions">
+          <div class="filter-select-wrap">
+            <label for="dateRangeFilter">Período:</label>
+            <select id="dateRangeFilter" class="filter-select">
+              <option value="all">Todo el Histórico</option>
+              <option value="month">Este Mes</option>
+              <option value="week">Últimos 7 Días</option>
+              <option value="today">Hoy</option>
+            </select>
+          </div>
+          <button class="btn btn-success" id="btnExportCSVMetricas">
+            <span>📥</span> Descargar Matriz (Excel / CSV)
+          </button>
+        </div>
+      </div>
+
+      <!-- Cuadrícula de 6 KPIs Estratégicos -->
+      <div class="kpi-grid">
+        <!-- KPI 1: Horas de Parada -->
+        <div class="kpi-card kpi-downtime">
+          <div class="kpi-icon-wrap">⏱️</div>
+          <div class="kpi-content">
+            <h3>Total Horas de Parada</h3>
+            <div class="kpi-value" id="kpiTotalDowntime">0h 00m</div>
+            <div class="kpi-subtext" id="kpiTotalDowntimeDec">0.00 horas acumuladas</div>
+          </div>
+        </div>
+
+        <!-- KPI 2: MTTR -->
+        <div class="kpi-card kpi-mttr">
+          <div class="kpi-icon-wrap">⚡</div>
+          <div class="kpi-content">
+            <h3>MTTR (Tiempo Medio Reparación)</h3>
+            <div class="kpi-value" id="kpiMTTR">0.00 hrs</div>
+            <div class="kpi-subtext">Horas promedio por falla cerrada</div>
+          </div>
+        </div>
+
+        <!-- KPI 3: MTBF -->
+        <div class="kpi-card kpi-mtbf">
+          <div class="kpi-icon-wrap">🔄</div>
+          <div class="kpi-content">
+            <h3>MTBF (Tiempo Medio Entre Fallas)</h3>
+            <div class="kpi-value" id="kpiMTBF">0.0 hrs</div>
+            <div class="kpi-subtext">Confiabilidad operativa estimada</div>
+          </div>
+        </div>
+
+        <!-- KPI 4: Costos de Terceros / Contratistas -->
+        <div class="kpi-card kpi-costos">
+          <div class="kpi-icon-wrap">💰</div>
+          <div class="kpi-content">
+            <h3>Costo Contratistas Externos</h3>
+            <div class="kpi-value text-purple" id="kpiCostoContratistas">$ 0.00</div>
+            <div class="kpi-subtext" id="kpiCostoSubtext">0 servicios tercerizados</div>
+          </div>
+        </div>
+
+        <!-- KPI 5: Ejecutadas vs Pendientes -->
+        <div class="kpi-card kpi-resolution">
+          <div class="kpi-icon-wrap">📈</div>
+          <div class="kpi-content">
+            <h3>Ejecutadas vs Pendientes</h3>
+            <div class="kpi-value" id="kpiResolutionRate">0%</div>
+            <div class="kpi-subtext" id="kpiCompletedCount">0 órdenes cerradas</div>
+          </div>
+        </div>
+
+        <!-- KPI 6: Cumplimiento de Preventivos -->
+        <div class="kpi-card kpi-preventivo-kpi">
+          <div class="kpi-icon-wrap">🛡️</div>
+          <div class="kpi-content">
+            <h3>Cumplimiento Preventivo</h3>
+            <div class="kpi-value" id="kpiPrevCumplimiento">100%</div>
+            <div class="kpi-subtext" id="kpiPrevSubtext">Planes al día</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cuadrícula de Gráficos Analíticos -->
+      <div class="charts-grid" style="margin-top: 1.5rem;">
+        <!-- Gráfico 1: Horas de Parada por Equipo -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <h3><span>⏱️</span> Ranking de Paradas por Equipo (Mayor Impacto)</h3>
+            <span>Downtime en Horas</span>
+          </div>
+          <div class="chart-container-inner" id="chartDowntimeByEquipment"></div>
+        </div>
+
+        <!-- Gráfico 2: Relación Ejecutadas vs Pendientes -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <h3><span>📊</span> Balance de Solicitudes: Ejecutadas vs Pendientes</h3>
+            <span>Tasa de Atención</span>
+          </div>
+          <div class="chart-container-inner" id="chartStatusComparison"></div>
+        </div>
+
+        <!-- Gráfico 3: Eficiencia por Trabajador / Técnico -->
+        <div class="chart-card col-span-2">
+          <div class="chart-card-header">
+            <h3><span>👷</span> Eficiencia y Rendimiento por Técnico Especialista</h3>
+            <span>OTs Asignadas, Culminadas, Tiempo Medio y Efectividad</span>
+          </div>
+          <div class="chart-container-inner" id="chartTechEfficiency"></div>
+        </div>
+
+        <!-- Gráfico 4: Costos de Contratistas Externos -->
+        <div class="chart-card col-span-2">
+          <div class="chart-card-header">
+            <h3><span>🏢</span> Desglose de Gastos en Contratistas Externos y Terceros</h3>
+            <span>Inversión por Empresa Especializada</span>
+          </div>
+          <div class="chart-container-inner" id="chartContractorCosts"></div>
+        </div>
+      </div>
+
+      <!-- Tabla Consolidada de Paradas por Equipo y Área -->
+      <div class="table-card" style="margin-top: 1.5rem;">
+        <div class="table-header-info">
+          <h3>Resumen Detallado de Paradas y Horas por Equipo y Área</h3>
+          <span class="text-muted">Consolidado para análisis de confiabilidad</span>
+        </div>
+        <div class="table-responsive">
+          <table class="custom-table" id="tableResumenEquipos">
+            <thead>
+              <tr>
+                <th>Código Equipo</th>
+                <th>Nombre del Equipo</th>
+                <th>Área Perteneciente</th>
+                <th>Cantidad Paradas</th>
+                <th>Horas de Parada</th>
+                <th>Tiempo Formateado</th>
+                <th>Costo Terceros</th>
+                <th>Impacto en Planta</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyResumenEquipos"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+         VISTA 5: MODO ADMINISTRADOR (ÁREAS, EQUIPOS, EMPLEADOS Y DATOS)
+         ========================================================================== -->
+    <section class="view-section" id="viewAdmin">
+      <div class="section-topbar">
+        <div class="section-title">
+          <h2><span>⚙️</span> Panel de Administración de Planta</h2>
+          <p>Gestión completa (crear, editar, eliminar) de áreas, equipos, empleados/técnicos y configuración del sistema</p>
+        </div>
+      </div>
+
+      <!-- Pestañas del Administrador -->
+      <div class="admin-subnav">
+        <button class="admin-subnav-btn active" data-admin-panel="panelAdminAreas" id="subtabAreas">🏭 Áreas de Producción</button>
+        <button class="admin-subnav-btn" data-admin-panel="panelAdminEquipos" id="subtabEquipos">⚙️ Equipos / Maquinarias</button>
+        <button class="admin-subnav-btn" data-admin-panel="panelAdminEmpleados" id="subtabEmpleados">👥 Empleados y Personal</button>
+        <button class="admin-subnav-btn" data-admin-panel="panelAdminConfig" id="subtabConfig">🔧 Configuración & Pines</button>
+        <button class="admin-subnav-btn" data-admin-panel="panelAdminBackup" id="subtabBackup">💾 Respaldo y Datos</button>
+      </div>
+
+      <!-- Panel 5.1: Áreas de Producción -->
+      <div class="admin-panel active" id="panelAdminAreas">
+        <div class="section-topbar" style="margin-bottom: 1rem; padding: 0.85rem 1.25rem;">
+          <div class="section-title">
+            <h2 style="font-size: 1.1rem;">Maestro de Áreas y Departamentos</h2>
+            <p>Define las áreas que pueden solicitar mantenimiento e intervenirse</p>
+          </div>
+          <button class="btn btn-primary btn-sm" id="btnNuevaArea">
+            <span>➕</span> Registrar Nueva Área
+          </button>
+        </div>
+
+        <div class="table-card">
+          <div class="table-responsive">
+            <table class="custom-table" id="tableAreas">
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Nombre del Área</th>
+                  <th>Descripción / Ubicación</th>
+                  <th>Equipos Vinculados</th>
+                  <th>Estado</th>
+                  <th style="text-align: right;">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyAreas"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel 5.2: Equipos / Maquinarias -->
+      <div class="admin-panel" id="panelAdminEquipos">
+        <div class="section-topbar" style="margin-bottom: 1rem; padding: 0.85rem 1.25rem;">
+          <div class="section-title">
+            <h2 style="font-size: 1.1rem;">Inventario de Equipos y Activos de Planta</h2>
+            <p>Registra las maquinarias vinculadas a su respectiva área con criticidad y ubicación</p>
+          </div>
+          <button class="btn btn-primary btn-sm" id="btnNuevoEquipo">
+            <span>➕</span> Registrar Nuevo Equipo
+          </button>
+        </div>
+
+        <div class="table-card">
+          <div class="table-responsive">
+            <table class="custom-table" id="tableEquipos">
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Nombre del Equipo</th>
+                  <th>Área de Producción</th>
+                  <th>Ubicación Física</th>
+                  <th>Criticidad Base</th>
+                  <th>Estado Operativo</th>
+                  <th style="text-align: right;">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyEquipos"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel 5.3: Empleados / Personal -->
+      <div class="admin-panel" id="panelAdminEmpleados">
+        <div class="section-topbar" style="margin-bottom: 1rem; padding: 0.85rem 1.25rem;">
+          <div class="section-title">
+            <h2 style="font-size: 1.1rem;">Nómina de Personal (Técnicos, Solicitantes y Supervisores)</h2>
+            <p>Gestión de empleados para emisión de solicitudes y asignación de órdenes de trabajo</p>
+          </div>
+          <button class="btn btn-primary btn-sm" id="btnNuevoEmpleado">
+            <span>➕</span> Registrar Nuevo Empleado
+          </button>
+        </div>
+
+        <div class="table-card">
+          <div class="table-responsive">
+            <table class="custom-table" id="tableEmpleados">
+              <thead>
+                <tr>
+                  <th>Nombre y Apellido</th>
+                  <th>Rol en el Sistema</th>
+                  <th>Especialidad / Departamento</th>
+                  <th>Teléfono / Contacto</th>
+                  <th>Estado</th>
+                  <th style="text-align: right;">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyEmpleados"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel 5.4: Configuración & Pines -->
+      <div class="admin-panel" id="panelAdminConfig">
+        <div class="table-card" style="max-width: 650px; padding: 1.5rem;">
+          <h3 style="margin-bottom: 1rem;">Ajustes Generales del CMMS</h3>
+          <form id="formConfig">
+            <div class="form-group" style="margin-bottom: 1rem;">
+              <label class="form-label">Nombre de la Empresa o Planta</label>
+              <input type="text" id="cfgNombreEmpresa" class="form-control" required>
+            </div>
+            <div class="form-group" style="margin-bottom: 1rem;">
+              <label class="form-label">Símbolo de Moneda (para Costos)</label>
+              <input type="text" id="cfgMoneda" class="form-control" style="width: 120px;" required>
+            </div>
+            <div class="form-group" style="margin-bottom: 1rem;">
+              <label class="form-label">PIN de Acceso a Mantenimiento (4 dígitos)</label>
+              <input type="password" id="cfgPinMantenimiento" class="form-control" maxlength="6" style="width: 180px;" required>
+              <span class="form-hint">Por defecto: 1234</span>
+            </div>
+            <div class="form-group" style="margin-bottom: 1.5rem;">
+              <label class="form-label">PIN de Acceso a Administrador (4 dígitos)</label>
+              <input type="password" id="cfgPinAdmin" class="form-control" maxlength="6" style="width: 180px;" required>
+              <span class="form-hint">Por defecto: 9999</span>
+            </div>
+            <button type="submit" class="btn btn-primary">Guardar Configuración</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Panel 5.5: Respaldo y Datos -->
+      <div class="admin-panel" id="panelAdminBackup">
+        <div class="backup-grid">
+          <div class="backup-card">
+            <div>
+              <h4>📤 Exportar Copia de Seguridad</h4>
+              <p>Descarga un archivo JSON con toda la base de datos (solicitudes, preventivos, áreas, equipos, empleados y costos).</p>
+            </div>
+            <button class="btn btn-primary" id="btnExportJSON">
+              <span>💾</span> Descargar Respaldo JSON
+            </button>
+          </div>
+
+          <div class="backup-card">
+            <div>
+              <h4>📥 Importar Copia de Seguridad</h4>
+              <p>Carga un archivo de respaldo previo para restaurar los datos en este servidor.</p>
+            </div>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <input type="file" id="fileImportJSON" accept=".json" style="display: none;">
+              <button class="btn btn-outline-primary" id="btnTriggerImportJSON">
+                <span>📁</span> Seleccionar Archivo JSON
+              </button>
+            </div>
+          </div>
+
+          <div class="backup-card">
+            <div>
+              <h4>🔄 Restaurar Datos de Demostración</h4>
+              <p>Restablece el sistema con áreas, equipos y solicitudes preconfiguradas para pruebas operativas de planta.</p>
+            </div>
+            <button class="btn btn-danger btn-sm" id="btnResetDemo">
+              <span>⚠️</span> Restaurar Datos Iniciales
+            </button>
+          </div>
+
+          <div class="backup-card">
+            <div>
+              <h4>🏭 Gestión de Entornos (Real vs Prueba)</h4>
+              <p>Alterna entre la base de datos de tu Planta Real (en blanco para configurar) y la base de prueba de Demostración.</p>
+            </div>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <button type="button" class="btn btn-primary btn-sm" id="btnAdminSwitchEnv">
+                <span>🔄</span> Conmutar Entorno (Real / Demo)
+              </button>
+              <button type="button" class="btn btn-outline btn-sm" id="btnAdminCloneCatalog">
+                <span>📋</span> Copiar Catálogo a Entorno Real
+              </button>
+              <button type="button" class="btn btn-danger btn-sm" id="btnAdminResetReal">
+                <span>🧹</span> Vaciar Entorno Real (En Cero)
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==========================================================================
+       MODALES DEL SISTEMA
+       ========================================================================== -->
+
+  <!-- MODAL: CAMBIAR DE ENTORNO (REAL VS DEMO) -->
+  <div class="modal-backdrop" id="modalSwitchEnv">
+    <div class="modal-dialog" style="max-width: 520px;">
+      <div class="modal-header">
+        <h3><span>🔄</span> Seleccionar Entorno de Trabajo</h3>
+        <button class="modal-close-btn" data-close-modal>&times;</button>
+      </div>
+      <form id="formSwitchEnv">
+        <div class="modal-body">
+          <p class="text-muted" style="margin-bottom: 1.25rem; font-size: 0.9rem;">
+            El sistema cuenta con dos bases de datos completamente separadas e independientes:
+          </p>
+
+          <div class="role-select-options">
+            <label class="role-option-card">
+              <input type="radio" name="targetEnvOption" value="real" id="radioEnvReal">
+              <div class="role-option-content">
+                <strong>🏭 Entorno Real (Mi Planta / En Blanco)</strong>
+                <p>Tu base de datos limpia y lista para producción. Puedes configurar tus áreas, equipos, empleados y registrar fallas reales.</p>
+              </div>
+            </label>
+
+            <label class="role-option-card">
+              <input type="radio" name="targetEnvOption" value="demo" id="radioEnvDemo">
+              <div class="role-option-content">
+                <strong>🧪 Entorno de Prueba (Demostración)</strong>
+                <p>Datos simulados preconfigurados (envasadora, reactores, paradas calculadas) para capacitación, pruebas y demostración.</p>
+              </div>
+            </label>
+          </div>
+
+          <div style="margin-top: 1rem; padding: 0.75rem; background: var(--bg-subtle); border-radius: var(--radius-sm); font-size: 0.85rem; color: var(--text-muted);">
+            ℹ️ Los cambios que realices en un entorno no afectarán en absoluto al otro. Puedes alternar entre ellos libremente en cualquier momento.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" data-close-modal>Cancelar</button>
+          <button type="submit" class="btn btn-primary">Aplicar y Conectar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: CAMBIAR DE PERFIL / INGRESO DE PIN -->
+  <div class="modal-backdrop" id="modalAuthPin">
+    <div class="modal-dialog" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3><span>🔑</span> Cambiar Perfil de Acceso</h3>
+        <button class="modal-close-btn" data-close-modal>&times;</button>
+      </div>
+      <form id="formAuthPin">
+        <div class="modal-body">
+          <p class="text-muted" style="margin-bottom: 1.25rem; font-size: 0.9rem;">
+            Selecciona el rol con el que deseas operar en este equipo o terminal:
+          </p>
+
+          <div class="role-select-options">
+            <label class="role-option-card">
+              <input type="radio" name="authRoleOption" value="produccion" checked>
+              <div class="role-option-content">
+                <strong>📋 Producción / Solicitantes</strong>
+                <p>Acceso libre para emitir y consultar solicitudes de reparación.</p>
+              </div>
+            </label>
+
+            <label class="role-option-card">
+              <input type="radio" name="authRoleOption" value="mantenimiento">
+              <div class="role-option-content">
+                <strong>🛠️ Mantenimiento (Técnicos & Supervisor)</strong>
+                <p>Control de OTs, asignación, contratistas, preventivo y métricas.</p>
+              </div>
+            </label>
+
+            <label class="role-option-card">
+              <input type="radio" name="authRoleOption" value="admin">
+              <div class="role-option-content">
+                <strong>⚙️ Administrador General</strong>
+                <p>Control total de catálogos, empleados, equipos y configuración.</p>
+              </div>
+            </label>
+          </div>
+
+          <!-- Campo de PIN (se muestra para mantenimiento y admin) -->
+          <div class="form-group" id="pinInputGroup" style="margin-top: 1.25rem; display: none;">
+            <label class="form-label">PIN de Seguridad <span class="req">*</span></label>
+            <input type="password" id="authPinValue" class="form-control" placeholder="••••" maxlength="6" autocomplete="off">
+            <span class="form-hint" id="pinHintText">Mantenimiento: 1234 | Admin: 9999</span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" data-close-modal>Cancelar</button>
+          <button type="submit" class="btn btn-primary">Ingresar al Perfil</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: NUEVA SOLICITUD DE MANTENIMIENTO -->
+  <div class="modal-backdrop" id="modalNuevaSolicitud">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3><span>📝</span> Nueva Solicitud de Mantenimiento</h3>
+        <button class="modal-close-btn" data-close-modal>&times;</button>
+      </div>
+      <form id="formNuevaSolicitud">
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Nombre del Solicitante <span class="req">*</span></label>
+              <input type="text" id="solSolicitante" class="form-control" placeholder="Ej: Marcos Rivas (Supervisor)" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Turno de Trabajo</label>
+              <select id="solTurno" class="form-control">
+                <option value="Mañana">Turno 1 (Mañana)</option>
+                <option value="Tarde">Turno 2 (Tarde)</option>
+                <option value="Noche">Turno 3 (Noche)</option>
+                <option value="Mixto">Turno Mixto / Rotativo</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Área a Intervenir <span class="req">*</span></label>
+              <select id="solAreaId" class="form-control" required>
+                <option value="">Seleccione el Área...</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Equipo a Intervenir <span class="req">*</span></label>
+              <select id="solEquipoId" class="form-control" required disabled>
+                <option value="">Primero seleccione el área...</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Tipo de Falla / Avería</label>
+              <select id="solTipoFalla" class="form-control">
+                <option value="Mecánica">Mecánica</option>
+                <option value="Eléctrica">Eléctrica</option>
+                <option value="Neumática">Neumática</option>
+                <option value="Hidráulica">Hidráulica</option>
+                <option value="Instrumentación">Instrumentación y Control</option>
+                <option value="Operativa">Operativa / Ajuste</option>
+                <option value="Servicios Generales">Servicios Generales</option>
+                <option value="Infraestructura">Infraestructura / Edilicia</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Nivel de Criticidad <span class="req">*</span></label>
+              <select id="solCriticidad" class="form-control" required>
+                <option value="Baja">🟢 Baja (Equipo opera sin riesgo)</option>
+                <option value="Media" selected>🟡 Media (Afecta rendimiento pero opera)</option>
+                <option value="Alta">🟠 Alta (Riesgo inminente de parada)</option>
+                <option value="Crítica">🔴 Crítica (LÍNEA O EQUIPO PARADO)</option>
+              </select>
+            </div>
+
+            <div class="form-group col-span-2">
+              <label class="form-label">Detalles de la Falla / Síntoma <span class="req">*</span></label>
+              <textarea id="solDescripcion" class="form-control" rows="3" placeholder="Describa el síntoma, ruido, mensaje de error en panel o fuga detectada..." required></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" data-close-modal>Cancelar</button>
+          <button type="submit" class="btn btn-primary">Emitir Solicitud</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ASIGNAR TÉCNICO O CONTRATISTA EXTERNO -->
+  <div class="modal-backdrop" id="modalAsignar">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3><span>👷</span> Asignar Orden de Trabajo (OT)</h3>
+        <button class="modal-close-btn" data-close-modal>&times;</button>
+      </div>
+      <form id="formAsignar">
+        <input type="hidden" id="asigSolId">
+        <div class="modal-body">
+          <p style="margin-bottom: 1rem; font-size: 0.88rem; color: var(--text-muted);" id="asigInfoSol">
+            Asignando orden...
+          </p>
+
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label class="form-label">¿Quién ejecutará el trabajo? <span class="req">*</span></label>
+            <div class="radio-toggle-group">
+              <label class="radio-pill">
+                <input type="radio" name="asigTipoEjecutor" value="Interno" checked>
+                <span>🛠️ Personal Técnico Interno</span>
+              </label>
+              <label class="radio-pill">
+                <input type="radio" name="asigTipoEjecutor" value="Contratista">
+                <span>🏢 Tercero / Contratista Externo</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Campos si es Personal Interno -->
+          <div id="seccionAsigInterno">
+            <div class="form-group" style="margin-bottom: 1rem;">
+              <label class="form-label">Técnico de Planta Responsable <span class="req">*</span></label>
+              <select id="asigTecnicoId" class="form-control">
+                <option value="">Seleccione el técnico...</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Campos si es Contratista Externo -->
+          <div id="seccionAsigContratista" style="display: none;">
+            <div class="form-group" style="margin-bottom: 0.75rem;">
+              <label class="form-label">Nombre de la Empresa o Contratista <span class="req">*</span></label>
+              <input type="text" id="asigContratistaNombre" class="form-control" placeholder="Ej: ElectroAutomatismos C.A.">
+            </div>
+            <div class="form-grid" style="margin-bottom: 0.75rem;">
+              <div class="form-group">
+                <label class="form-label">N° de Factura / Cotización / OC</label>
+                <input type="text" id="asigContratistaOC" class="form-control" placeholder="Ej: OC-2026-104">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Costo del Trabajo ($) <span class="req">*</span></label>
+                <input type="number" id="asigContratistaCosto" class="form-control" placeholder="0.00" step="0.01" min="0">
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label class="form-label">Fecha y Hora de Asignación</label>
+            <input type="datetime-local" id="asigFechaHora" class="form-control">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Instrucciones o Notas Técnicas</label>
+            <textarea id="asigNotas" class="form-control" rows="2" placeholder="Instrucciones previas, precauciones de seguridad (LOTO)..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" data-close-modal>Cancelar</button>
+          <button type="submit" class="btn btn-primary">Confirmar Asignación</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: INICIAR INTERVENCIÓN (INICIO DE PARADA) -->
+  <div class="modal-backdrop" id="modalIniciar">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3><span>⚙️</span> Iniciar Intervención Técnica</h3>
+        <button class="modal-close-btn" data-close-modal>&times;</button>
+      </div>
+      <form id="formIniciar">
+        <input type="hidden" id="iniciarSolId">
+        <div class="modal-body">
+          <p style="margin-bottom: 1rem; font-size: 0.88rem; color: var(--text-muted);" id="iniciarInfoSol">
+            Iniciando intervención...
+          </p>
+
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label class="form-label">Fecha y Hora de Inicio de la Parada / Reparación <span class="req">*</span></label>
+            <div class="input-with-action">
+              <input type="datetime-local" id="iniciarFechaHora" class="form-control" required>
+              <button type="button" class="btn btn-outline btn-sm" id="btnSetNowInicio">Ahora</button>
+            </div>
+            <span class="form-hint">A partir de este momento se computará el tiempo de parada técnica del equipo.</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Notas Iniciales de Llegada al Equipo</label>
+            <textarea id="iniciarNotas" class="form-control" rows="2" placeholder="Condición del equipo al llegar, bloqueo LOTO..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" data-close-modal>Cancelar</button>
+          <button type="submit" class="btn btn-primary">Comenzar Intervención</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: CULMINAR INTERVENCIÓN (CIERRE TÉCNICO Y CÁLCULO DE PARADA) -->
+  <div class="modal-backdrop" id="modalCulminar">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <h3><span>✅</span> Culminar Intervención y Cierre de Parada</h3>
+        <button class="modal-close-btn" data-close-modal>&times;</button>
+      </div>
+      <form id="formCulminar">
+        <input type="hidden" id="culminarSolId">
+        <div class="modal-body">
+          <p style="margin-bottom: 1rem; font-size: 0.88rem; color: var(--text-muted);" id="culminarInfoSol">
+            Registrando cierre técnico...
+          </p>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Fecha y Hora de Inicio <span class="req">*</span></label>
+              <input type="datetime-local" id="culminarFechaInicio" class="form-control" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Fecha y Hora de Culminación <span class="req">*</span></label>
+              <div class="input-with-action">
+                <input type="datetime-local" id="culminarFechaFin" class="form-control" required>
+                <button type="button" class="btn btn-outline btn-sm" id="btnSetNowFin">Ahora</button>
+              </div>
+            </div>
+
+            <!-- Caja de cálculo en vivo de Horas de Parada -->
+            <div class="form-group col-span-2">
+              <div class="downtime-calc-box">
+                <div class="downtime-calc-label">
+                  <span>⏱️</span>
+                  <span>TIEMPO TOTAL DE PARADA DEL EQUIPO (DOWNTIME):</span>
+                </div>
+                <div class="downtime-calc-result" id="liveDowntimeCalc">
+                  0h 00m (0.00 hrs)
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group col-span-2">
+              <label class="form-label">Diagnóstico Técnico de la Causa Raíz <span class="req">*</span></label>
+              <textarea id="culminarDiagnostico" class="form-control" rows="2" placeholder="¿Cuál fue la causa exacta que originó la falla?" required></textarea>
+            </div>
+
+            <div class="form-group col-span-2">
+              <label class="form-label">Acción Correctiva / Solución Ejecutada <span class="req">*</span></label>
+              <textarea id="culminarSolucion" class="form-control" rows="2" placeholder="Detalle de trabajos mecánicos, eléctricos o de calibración realizados..." required></textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Repuestos y Materiales Utilizados</label>
+              <input type="text" id="culminarRepuestos" class="form-control" placeholder="Ej: 1x Rodamiento SKF 6205, Contactores 24V...">
+            </div>
+
+            <!-- Si fue contratista, costo final -->
+            <div class="form-group" id="culminarContratistaCostoWrap" style="display: none;">
+              <label class="form-label">Costo Final del Contratista ($)</label>
+              <input type="number" id="culminarContratistaCosto" class="form-control" step="0.01" min="0">
+            </div>
+
+            <div class="form-group col-span-2">
+              <label class="form-label">Observaciones de Entrega a Producción</label>
+              <input type="text" id="culminarObservaciones" class="form-control" placeholder="Ej: Prueba con carga operativa satisfactoria, entrega a supervisor...">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" data-close-modal>Cancelar</button>
+          <button type="submit" class="btn btn-success">Guardar y Cerrar Parada</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: FICHA TÉCNICA / ORDEN DE TRABAJO (IMPRIMIBLE) -->
+  <div class="modal-backdrop" id="modalDetalle">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <h3><span>📄</span> Ficha Técnica de la Solicitud / Orden de Trabajo</h3>
+        <button class="modal-close-btn" data-close-modal>&times;</button>
+      </div>
+      <div class="modal-body" id="detalleContenido">
+        <!-- Renderizado dinámico -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="window.print()"><span>🖨️</span> Imprimir Ficha</button>
+        <button type="button" class="btn btn-primary" data-close-modal>Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: AGREGAR / EDITAR PLAN PREVENTIVO -->
+  <div class="modal-backdrop" id="modalPreventivo">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <h3 id="modalPrevTitle"><span>📅</span> Registrar Plan de Mantenimiento Preventivo</h3>
+        <button class="modal-close-btn" data-close-modal>&times;</button>
+      </div>
+      <form id="formPreventivo">
+        <input type="hidden" id="prevEditId">
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Código del Plan <span class="req">*</span></label>
+              <input type="text" id="prevCodigo" class="form-control" placeholder="Ej: MP-ENV-SEM" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Frecuencia de Ejecución <span class="req">*</span></label>
+              <select id="prevFrecuencia" class="form-control" required>
+                <option value="Semanal">Semanal (cada 7 días)</option>
+                <option value="Quincenal">Quincenal (cada 15 días)</option>
+                <option value="Mensual" selected>Mensual (cada 30 días)</option>
+                <option value="Trimestral">Trimestral (cada 90 días)</option>
+                <option value="Semestral">Semestral (cada 180 días)</option>
+                <option value="Anual">Anual (cada 365 días)</option>
+              </select>
+            </div>
+
+            <div class="form-group col-span-2">
+              <label class="form-label">Título del Plan Preventivo <span class="req">*</span></label>
+              <input type="text" id="prevTitulo" class="form-control" placeholder="Ej: Engrase y Revisión de Cadenas de Envasadora" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Área de Producción <span class="req">*</span></label>
+              <select id="prevAreaId" class="form-control" required>
+                <!-- Carga dinámica -->
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Equipo Vinculado <span class="req">*</span></label>
+              <select id="prevEquipoId" class="form-control" required disabled>
+                <!-- Carga dinámica -->
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Próxima Fecha Programada <span class="req">*</span></label>
+              <input type="date" id="prevProximaFecha" class="form-control" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Ejecutor Previsto</label>
+              <select id="prevTipoEjecutor" class="form-control">
+                <option value="Interno">Personal Interno de Planta</option>
+                <option value="Contratista">Tercero / Contratista Especializado</option>
+              </select>
+            </div>
+
+            <div class="form-group" id="prevResponsableWrap">
+              <label class="form-label">Técnico Responsable</label>
+              <select id="prevResponsableId" class="form-control">
+                <option value="">Seleccione técnico...</option>
+              </select>
+            </div>
+
+            <div class="form-group" id="prevContratistaWrap" style="display: none;">
+              <label class="form-label">Empresa Contratista Prevista</label>
+              <input type="text" id="prevContratistaNombre" class="form-control" placeholder="Ej: Térmica & Combustión Industrial">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Costo Estimado ($)</label>
+              <input type="number" id="prevCostoEstimado" class="form-control" placeholder="0.00" step="0.01" min="0">
+            </div>
+
+            <div class="form-group col-span-2">
+              <label class="form-label">Checklist de Tareas a Ejecutar (1 por línea) <span class="req">*</span></label>
+              <textarea id="prevTareas" class="form-control" rows="3" placeholder="Inspeccionar tensión de cadena&#10;Lubricar con grasa sanitaria H1&#10;Limpieza de sensores" required></textarea>
+            </div>
+
+            <div class="form-group col-span-2">
+              <label class="form-label">Observaciones y Seguridad (LOTO, EPP)</label>
+              <input type="text" id="prevObservaciones" class="form-control" placeholder="Ej: Requiere bloqueo eléctrico de seguridad LOTO.">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" data-close-modal>Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar Plan Preventivo</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: AGREGAR / EDITAR ÁREA -->
+  <div class="modal-backdrop" id="modalArea">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="modalAreaTitle"><span>🏭</span> Registrar Área de Producción</h3>
+        <button class="modal-close-btn" data-close-modal>&times;</button>
+      </div>
+      <form id="formArea">
+        <input type="hidden" id="areaEditId">
+        <div class="modal-body">
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label class="form-label">Código Siglas <span class="req">*</span></label>
+            <input type="text" id="areaCodigo" class="form-control" placeholder="Ej: ENV, MEZ, EMP" required maxlength="6">
+          </div>
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label class="form-label">Nombre del Área <span class="req">*</span></label>
+            <input type="text" id="areaNombre" class="form-control" placeholder="Ej: Línea de Envasado" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Descripción / Ubicación</label>
+            <textarea id="areaDescripcion" class="form-control" rows="2" placeholder="Ubicación física en planta o descripción del proceso..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" data-close-modal>Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar Área</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: AGREGAR / EDITAR EQUIPO -->
+  <div class="modal-backdrop" id="modalEquipo">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="modalEquipoTitle"><span>⚙️</span> Registrar Equipo / Maquinaria</h3>
+        <button class="modal-close-btn" data-close-modal>&times;</button>
+      </div>
+      <form id="formEquipo">
+        <input type="hidden" id="equipoEditId">
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Código de Equipo <span class="req">*</span></label>
+              <input type="text" id="equipoCodigo" class="form-control" placeholder="Ej: ENV-01, CAL-01" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Área de Producción <span class="req">*</span></label>
+              <select id="equipoAreaId" class="form-control" required>
+                <!-- Carga dinámica -->
+              </select>
+            </div>
+
+            <div class="form-group col-span-2">
+              <label class="form-label">Nombre del Equipo <span class="req">*</span></label>
+              <input type="text" id="equipoNombre" class="form-control" placeholder="Ej: Envasadora Rotativa Automática" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Ubicación Física</label>
+              <input type="text" id="equipoUbicacion" class="form-control" placeholder="Ej: Nave A, Puesto 1">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Criticidad Base</label>
+              <select id="equipoCriticidad" class="form-control">
+                <option value="Baja">Baja</option>
+                <option value="Media" selected>Media</option>
+                <option value="Alta">Alta</option>
+                <option value="Crítica">Crítica</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Estado Operativo</label>
+              <select id="equipoEstado" class="form-control">
+                <option value="Operativo">Operativo</option>
+                <option value="En Mantenimiento">En Mantenimiento</option>
+                <option value="En Falla">En Falla</option>
+                <option value="Fuera de Servicio">Fuera de Servicio</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" data-close-modal>Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar Equipo</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: AGREGAR / EDITAR EMPLEADO -->
+  <div class="modal-backdrop" id="modalEmpleado">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="modalEmpleadoTitle"><span>👥</span> Registrar Empleado</h3>
+        <button class="modal-close-btn" data-close-modal>&times;</button>
+      </div>
+      <form id="formEmpleado">
+        <input type="hidden" id="empEditId">
+        <div class="modal-body">
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label class="form-label">Nombre y Apellido <span class="req">*</span></label>
+            <input type="text" id="empNombre" class="form-control" placeholder="Ej: Juan Pérez" required>
+          </div>
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label class="form-label">Rol en la Planta <span class="req">*</span></label>
+            <select id="empRol" class="form-control" required>
+              <option value="Técnico">Técnico de Mantenimiento</option>
+              <option value="Supervisor">Supervisor de Mantenimiento</option>
+              <option value="Solicitante">Operador / Solicitante de Producción</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label class="form-label">Especialidad / Departamento <span class="req">*</span></label>
+            <input type="text" id="empEspecialidad" class="form-control" placeholder="Ej: Mecánica Industrial, Electricidad, PLC..." required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Teléfono o Canal de Radio</label>
+            <input type="text" id="empTelefono" class="form-control" placeholder="Ej: +58 412-0000000">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" data-close-modal>Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar Empleado</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- CONTENEDOR DE TOASTS FLOTANTES -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Scripts del Sistema (Orden de Dependencia) -->
+  <script src="js/api.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/analytics.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

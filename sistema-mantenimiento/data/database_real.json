@@ -1,0 +1,82 @@
+{
+  "version": "2.0.0",
+  "environment": "real",
+  "config": {
+    "nombreEmpresa": "Grupo Comercialilzadora Ferco",
+    "moneda": "$",
+    "horasTurnoDia": 24,
+    "pinMantenimiento": "1234",
+    "pinAdmin": "9999"
+  },
+  "areas": [
+    {
+      "id": "AREA-1788812135558",
+      "codigo": "RM",
+      "nombre": "Reposteria Mezcla",
+      "descripcion": "CDPI",
+      "activa": true
+    },
+    {
+      "id": "AREA-1788812162707",
+      "codigo": "DE",
+      "nombre": "Decoracion",
+      "descripcion": "CDPI",
+      "activa": true
+    },
+    {
+      "id": "AREA-1788812180485",
+      "codigo": "MC",
+      "nombre": "Mezcla Cepillados",
+      "descripcion": "CDPI",
+      "activa": true
+    },
+    {
+      "id": "AREA-1788812196754",
+      "codigo": "MQ",
+      "nombre": "MAQUINAS",
+      "descripcion": "CDPI",
+      "activa": true
+    },
+    {
+      "id": "AREA-1788812218615",
+      "codigo": "AL",
+      "nombre": "ALMACEN",
+      "descripcion": "CDPI",
+      "activa": true
+    },
+    {
+      "id": "AREA-1788812230205",
+      "codigo": "GA",
+      "nombre": "GALLETERIA",
+      "descripcion": "CDPI",
+      "activa": true
+    },
+    {
+      "id": "AREA-1788812241010",
+      "codigo": "PP",
+      "nombre": "PRE PRODUCCION",
+      "descripcion": "CDPI",
+      "activa": true
+    },
+    {
+      "id": "AREA-1788812322708",
+      "codigo": "OA",
+      "nombre": "OFICINAS ADMINISTRATIVOS",
+      "descripcion": "CDPI",
+      "activa": true
+    }
+  ],
+  "equipos": [],
+  "empleados": [
+    {
+      "id": "EMP-1",
+      "nombre": "Administrador Principal",
+      "especialidad": "Jefatura de Mantenimiento",
+      "rol": "Supervisor",
+      "telefono": "",
+      "activo": true
+    }
+  ],
+  "solicitudes": [],
+  "preventivos": []
+}
