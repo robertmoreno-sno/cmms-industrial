@@ -301,16 +301,26 @@ class CMMSStore {
     const maxFolio = (this.data.solicitudes || []).reduce((max, s) => Math.max(max, s.folio || 0), 0);
     const nextFolio = maxFolio + 1;
     const id = `SOL-2026-${String(nextFolio).padStart(3, '0')}`;
+    const tipoSolicitud = nueva.tipoSolicitud === 'Requerimiento' ? 'Requerimiento' : 'Averia';
+    const isReq = tipoSolicitud === 'Requerimiento';
+    const equipoId = isReq ? null : (nueva.equipoId || null);
+
+    const getLocalNow = () => {
+      const d = new Date();
+      const tzOffset = d.getTimezoneOffset() * 60000;
+      return (new Date(d - tzOffset)).toISOString().slice(0, 16);
+    };
 
     const solicitudObj = {
       id,
       folio: nextFolio,
-      fechaSolicitud: nueva.fechaSolicitud || new Date().toISOString().slice(0, 16),
+      tipoSolicitud, // 'Averia' | 'Requerimiento'
+      fechaSolicitud: nueva.fechaSolicitud || getLocalNow(),
       solicitante: nueva.solicitante.trim(),
       turno: nueva.turno || 'Mañana',
       areaId: nueva.areaId,
-      equipoId: nueva.equipoId,
-      tipoFalla: nueva.tipoFalla || 'Mecánica',
+      equipoId,
+      tipoFalla: nueva.tipoFalla || (isReq ? 'Servicios Generales' : 'Mecánica'),
       criticidad: nueva.criticidad || 'Media',
       descripcion: nueva.descripcion.trim(),
       estado: 'Pendiente',
@@ -321,8 +331,18 @@ class CMMSStore {
       fechaInicio: null,
       fechaFin: null,
       horasParadaDecimal: 0,
-      horasParadaTexto: 'Por iniciar',
+      horasParadaTexto: isReq ? 'No aplica (Operativo)' : 'Por iniciar',
       minutosParadaTotal: 0,
+      horasAtencionDecimal: 0,
+      horasAtencionTexto: 'Por iniciar',
+      minutosAtencionTotal: 0,
+      motivoDetenimiento: null,
+      detalleDetenimiento: null,
+      fechaDetenimiento: null,
+      estadoPrevio: null,
+      motivoCancelacion: null,
+      detalleCancelacion: null,
+      fechaCancelacion: null,
       diagnostico: '',
       solucion: '',
       repuestos: '',
@@ -355,17 +375,73 @@ class CMMSStore {
 
     const actual = this.data.solicitudes[index];
     const updated = { ...actual, ...patch, id };
+    const isReq = (updated.tipoSolicitud === 'Requerimiento' || !updated.equipoId);
 
-    // Si se registran horas de parada
-    if (updated.fechaInicio && updated.fechaFin) {
-      const calculo = this.calcularHorasParada(updated.fechaInicio, updated.fechaFin);
-      updated.horasParadaDecimal = calculo.decimal;
-      updated.horasParadaTexto = calculo.texto;
-      updated.minutosParadaTotal = calculo.minutos;
-    } else if (updated.fechaInicio && !updated.fechaFin) {
-      updated.horasParadaTexto = 'En curso...';
+    const getLocalNow = () => {
+      const d = new Date();
+      const tzOffset = d.getTimezoneOffset() * 60000;
+      return (new Date(d - tzOffset)).toISOString().slice(0, 16);
+    };
+
+    // Si la orden fue cancelada / desestimada
+    if (updated.estado === 'Cancelada') {
       updated.horasParadaDecimal = 0;
+      updated.horasParadaTexto = 'Anulada';
       updated.minutosParadaTotal = 0;
+      updated.horasAtencionDecimal = 0;
+      updated.horasAtencionTexto = 'Anulada';
+      updated.minutosAtencionTotal = 0;
+    }
+    // Si se culmina la intervención / requerimiento
+    else if (updated.estado === 'Culminada' || (updated.fechaInicio && updated.fechaFin)) {
+      const inicio = updated.fechaInicio || (isReq ? (updated.fechaAsignacion || updated.fechaSolicitud) : updated.fechaSolicitud);
+      const fin = updated.fechaFin || getLocalNow();
+      updated.fechaInicio = inicio;
+      updated.fechaFin = fin;
+
+      const calculo = this.calcularHorasParada(inicio, fin);
+      if (isReq) {
+        // En requerimientos no hay parada de equipo (línea operativa)
+        updated.horasParadaDecimal = 0;
+        updated.horasParadaTexto = 'No aplica (Operativo)';
+        updated.minutosParadaTotal = 0;
+        // Se registra tiempo de atención técnica
+        updated.horasAtencionDecimal = (patch.horasAtencionDecimal !== undefined && patch.horasAtencionDecimal > 0)
+          ? patch.horasAtencionDecimal
+          : calculo.decimal;
+        updated.horasAtencionTexto = (patch.horasAtencionTexto && patch.horasAtencionTexto !== '0h 00m')
+          ? patch.horasAtencionTexto
+          : calculo.texto;
+        updated.minutosAtencionTotal = (patch.minutosAtencionTotal !== undefined && patch.minutosAtencionTotal > 0)
+          ? patch.minutosAtencionTotal
+          : calculo.minutos;
+      } else {
+        // En avería de equipo se registran horas de parada
+        updated.horasParadaDecimal = (patch.horasParadaDecimal !== undefined && patch.horasParadaDecimal > 0)
+          ? patch.horasParadaDecimal
+          : calculo.decimal;
+        updated.horasParadaTexto = (patch.horasParadaTexto && patch.horasParadaTexto !== '0h 00m')
+          ? patch.horasParadaTexto
+          : calculo.texto;
+        updated.minutosParadaTotal = (patch.minutosParadaTotal !== undefined && patch.minutosParadaTotal > 0)
+          ? patch.minutosParadaTotal
+          : calculo.minutos;
+        updated.horasAtencionDecimal = updated.horasParadaDecimal;
+        updated.horasAtencionTexto = updated.horasParadaTexto;
+        updated.minutosAtencionTotal = updated.minutosParadaTotal;
+      }
+    } else if (updated.fechaInicio && !updated.fechaFin) {
+      if (isReq) {
+        updated.horasParadaTexto = 'No aplica (Operativo)';
+        updated.horasParadaDecimal = 0;
+        updated.minutosParadaTotal = 0;
+        updated.horasAtencionTexto = 'En curso...';
+      } else {
+        updated.horasParadaTexto = 'En curso...';
+        updated.horasParadaDecimal = 0;
+        updated.minutosParadaTotal = 0;
+        updated.horasAtencionTexto = 'En curso...';
+      }
     }
 
     this.data.solicitudes[index] = updated;
@@ -718,7 +794,10 @@ class CMMSStore {
       return { decimal: 0, minutos: 0, texto: '0h 00m' };
     }
 
-    const totalMinutos = Math.round(diffMs / (1000 * 60));
+    let totalMinutos = Math.round(diffMs / (1000 * 60));
+    if (totalMinutos === 0 && diffMs > 0) {
+      totalMinutos = 1;
+    }
     const horas = Math.floor(totalMinutos / 60);
     const minutos = totalMinutos % 60;
     const decimal = Number((totalMinutos / 60).toFixed(2));

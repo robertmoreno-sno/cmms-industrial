@@ -99,6 +99,14 @@
           <input type="text" id="searchProd" placeholder="Buscar por equipo, falla, folio o solicitante...">
         </div>
         <div class="filter-select-wrap">
+          <label for="filterTipoProd">Tipo:</label>
+          <select id="filterTipoProd" class="filter-select">
+            <option value="Todos">Todos los Tipos</option>
+            <option value="Averia">🛠️ Averías de Equipo</option>
+            <option value="Requerimiento">📋 Requerimientos de Área</option>
+          </select>
+        </div>
+        <div class="filter-select-wrap">
           <label for="filterAreaProd">Área:</label>
           <select id="filterAreaProd" class="filter-select">
             <option value="Todas">Todas las Áreas</option>
@@ -111,7 +119,9 @@
             <option value="Pendiente">🕒 Pendiente</option>
             <option value="Asignada">👷 Asignada</option>
             <option value="En Intervención">⚙️ En Intervención</option>
+            <option value="Detenida">⏸️ Detenida / En Pausa</option>
             <option value="Culminada">✅ Culminada</option>
+            <option value="Cancelada">🗑️ Canceladas / Eliminadas</option>
           </select>
         </div>
       </div>
@@ -128,13 +138,14 @@
               <tr>
                 <th>Folio / ID</th>
                 <th>Fecha y Hora</th>
+                <th>Tipo</th>
                 <th>Área</th>
-                <th>Equipo</th>
-                <th>Descripción de Falla</th>
+                <th>Equipo / Asunto</th>
+                <th>Descripción / Requerimiento</th>
                 <th>Criticidad</th>
                 <th>Estado Actual</th>
                 <th>Atendido Por</th>
-                <th>Tiempo Parada</th>
+                <th>Tiempo (Parada / Atención)</th>
                 <th style="text-align: right;">Acciones</th>
               </tr>
             </thead>
@@ -172,6 +183,14 @@
           <input type="text" id="searchGerencia" placeholder="Buscar por código, equipo, técnico o síntoma...">
         </div>
         <div class="filter-select-wrap">
+          <label for="filterTipoGerencia">Tipo:</label>
+          <select id="filterTipoGerencia" class="filter-select">
+            <option value="Todos">Todos los Tipos</option>
+            <option value="Averia">🛠️ Averías de Equipo</option>
+            <option value="Requerimiento">📋 Requerimientos de Área</option>
+          </select>
+        </div>
+        <div class="filter-select-wrap">
           <label for="filterAreaGerencia">Área:</label>
           <select id="filterAreaGerencia" class="filter-select">
             <option value="Todas">Todas las Áreas</option>
@@ -184,7 +203,9 @@
             <option value="Pendiente">🕒 Pendientes</option>
             <option value="Asignada">👷 Asignadas</option>
             <option value="En Intervención">⚙️ En Intervención</option>
+            <option value="Detenida">⏸️ Detenidas / En Pausa</option>
             <option value="Culminada">✅ Culminadas</option>
+            <option value="Cancelada">🗑️ Canceladas / Eliminadas</option>
           </select>
         </div>
         <div class="filter-select-wrap">
@@ -211,14 +232,15 @@
               <tr>
                 <th>Folio</th>
                 <th>Fecha Reporte</th>
+                <th>Tipo</th>
                 <th>Área</th>
-                <th>Equipo</th>
-                <th>Falla / Síntoma</th>
+                <th>Equipo / Asunto</th>
+                <th>Falla / Requerimiento</th>
                 <th>Criticidad</th>
                 <th>Estado</th>
                 <th>Ejecutor / Responsable</th>
-                <th>Intervención (Inicio - Fin)</th>
-                <th>Horas Parada</th>
+                <th>Intervención</th>
+                <th>Tiempo (Parada / Atención)</th>
                 <th style="text-align: right; min-width: 170px;">Acciones Técnicas</th>
               </tr>
             </thead>
@@ -339,13 +361,23 @@
 
       <!-- Cuadrícula de 6 KPIs Estratégicos -->
       <div class="kpi-grid">
-        <!-- KPI 1: Horas de Parada -->
+        <!-- KPI 1: Horas de Parada de Máquinas -->
         <div class="kpi-card kpi-downtime">
-          <div class="kpi-icon-wrap">⏱️</div>
+          <div class="kpi-icon-wrap">🛑</div>
           <div class="kpi-content">
-            <h3>Total Horas de Parada</h3>
+            <h3>Parada de Máquinas (Downtime)</h3>
             <div class="kpi-value" id="kpiTotalDowntime">0h 00m</div>
-            <div class="kpi-subtext" id="kpiTotalDowntimeDec">0.00 horas acumuladas</div>
+            <div class="kpi-subtext" id="kpiTotalDowntimeDec">0.00 horas en averías</div>
+          </div>
+        </div>
+
+        <!-- KPI: Tiempo de Atención (Requerimientos) -->
+        <div class="kpi-card" style="border-left: 4px solid #0284c7; background: var(--bg-card);">
+          <div class="kpi-icon-wrap" style="color: #0284c7; background: #e0f2fe;">⏱️</div>
+          <div class="kpi-content">
+            <h3>Tiempo Atención (Requerimientos)</h3>
+            <div class="kpi-value" style="color: #0284c7;" id="kpiTotalAtencion">0h 00m</div>
+            <div class="kpi-subtext" id="kpiTotalAtencionSub">0 requerimientos de área</div>
           </div>
         </div>
 
@@ -353,9 +385,9 @@
         <div class="kpi-card kpi-mttr">
           <div class="kpi-icon-wrap">⚡</div>
           <div class="kpi-content">
-            <h3>MTTR (Tiempo Medio Reparación)</h3>
+            <h3>MTTR (Reparación Máquinas)</h3>
             <div class="kpi-value" id="kpiMTTR">0.00 hrs</div>
-            <div class="kpi-subtext">Horas promedio por falla cerrada</div>
+            <div class="kpi-subtext">Horas promedio por avería cerrada</div>
           </div>
         </div>
 
@@ -363,9 +395,9 @@
         <div class="kpi-card kpi-mtbf">
           <div class="kpi-icon-wrap">🔄</div>
           <div class="kpi-content">
-            <h3>MTBF (Tiempo Medio Entre Fallas)</h3>
+            <h3>MTBF (Tiempo Entre Averías)</h3>
             <div class="kpi-value" id="kpiMTBF">0.0 hrs</div>
-            <div class="kpi-subtext">Confiabilidad operativa estimada</div>
+            <div class="kpi-subtext">Confiabilidad de maquinaria</div>
           </div>
         </div>
 
@@ -777,6 +809,20 @@
       <form id="formNuevaSolicitud">
         <div class="modal-body">
           <div class="form-grid">
+            <!-- Selector de Tipo de Reporte: Avería de Equipo vs Requerimiento de Área -->
+            <div class="form-group col-span-2" style="background: var(--bg-hover); border: 1.5px solid var(--border); border-radius: 8px; padding: 0.85rem;">
+              <label class="form-label" style="font-weight: 700; color: var(--primary); font-size: 0.95rem;">
+                <span>🎯</span> Tipo de Reporte o Solicitud <span class="req">*</span>
+              </label>
+              <select id="solTipoSolicitud" class="form-control" style="font-weight: 600; font-size: 0.95rem;">
+                <option value="Averia" selected>🛠️ Avería de Equipo (Falla en maquinaria - Computa parada de planta)</option>
+                <option value="Requerimiento">📋 Requerimiento / Solicitud de Área (Servicio general o mejora - Computa tiempo de atención)</option>
+              </select>
+              <div id="solTipoHelpText" style="margin-top: 0.45rem; font-size: 0.82rem; color: var(--text-muted); line-height: 1.35;">
+                ⚙️ <strong>Avería de Equipo:</strong> Se asociará a una máquina específica y computará dentro de las <em>Horas de Parada de Planta (MTTR/MTBF)</em>.
+              </div>
+            </div>
+
             <div class="form-group">
               <label class="form-label">Nombre del Solicitante <span class="req">*</span></label>
               <input type="text" id="solSolicitante" class="form-control" placeholder="Ej: Marcos Rivas (Supervisor)" required>
@@ -792,22 +838,22 @@
               </select>
             </div>
 
-            <div class="form-group">
+            <div class="form-group" id="groupSolArea">
               <label class="form-label">Área a Intervenir <span class="req">*</span></label>
               <select id="solAreaId" class="form-control" required>
                 <option value="">Seleccione el Área...</option>
               </select>
             </div>
 
-            <div class="form-group">
-              <label class="form-label">Equipo a Intervenir <span class="req">*</span></label>
+            <div class="form-group" id="groupSolEquipo">
+              <label class="form-label" id="lblSolEquipo">Equipo a Intervenir <span class="req">*</span></label>
               <select id="solEquipoId" class="form-control" required disabled>
                 <option value="">Primero seleccione el área...</option>
               </select>
             </div>
 
-            <div class="form-group">
-              <label class="form-label">Tipo de Falla / Avería</label>
+            <div class="form-group" id="groupSolTipoFalla">
+              <label class="form-label" id="lblSolTipoFalla">Tipo de Falla / Categoría</label>
               <select id="solTipoFalla" class="form-control">
                 <option value="Mecánica">Mecánica</option>
                 <option value="Eléctrica">Eléctrica</option>
@@ -821,17 +867,17 @@
             </div>
 
             <div class="form-group">
-              <label class="form-label">Nivel de Criticidad <span class="req">*</span></label>
+              <label class="form-label">Nivel de Prioridad / Criticidad <span class="req">*</span></label>
               <select id="solCriticidad" class="form-control" required>
-                <option value="Baja">🟢 Baja (Equipo opera sin riesgo)</option>
-                <option value="Media" selected>🟡 Media (Afecta rendimiento pero opera)</option>
-                <option value="Alta">🟠 Alta (Riesgo inminente de parada)</option>
-                <option value="Crítica">🔴 Crítica (LÍNEA O EQUIPO PARADO)</option>
+                <option value="Baja">🟢 Baja (No afecta producción)</option>
+                <option value="Media" selected>🟡 Media (Atención requerida)</option>
+                <option value="Alta">🟠 Alta (Riesgo inminente)</option>
+                <option value="Crítica">🔴 Crítica / Urgente</option>
               </select>
             </div>
 
             <div class="form-group col-span-2">
-              <label class="form-label">Detalles de la Falla / Síntoma <span class="req">*</span></label>
+              <label class="form-label" id="lblSolDescripcion">Detalles de la Falla / Síntoma <span class="req">*</span></label>
               <textarea id="solDescripcion" class="form-control" rows="3" placeholder="Describa el síntoma, ruido, mensaje de error en panel o fuga detectada..." required></textarea>
             </div>
           </div>
@@ -954,11 +1000,115 @@
     </div>
   </div>
 
+  <!-- MODAL: DETENER / PAUSAR ORDEN DE TRABAJO -->
+  <div class="modal-backdrop" id="modalDetenerOT">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3><span>⏸️</span> Detener / Pausar Orden de Trabajo</h3>
+        <button class="modal-close-btn" data-close-modal>&times;</button>
+      </div>
+      <form id="formDetenerOT">
+        <input type="hidden" id="detenerSolId">
+        <div class="modal-body">
+          <div style="background: var(--bg-subtle); padding: 0.75rem; border-radius: var(--radius-sm); margin-bottom: 1rem;">
+            <p style="font-size: 0.88rem; color: var(--text-muted); margin: 0;" id="detenerInfoSol">
+              Cargando información de la orden...
+            </p>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label class="form-label">Motivo del Detenimiento / Suspensión <span class="req">*</span></label>
+            <select id="detenerMotivo" class="form-control" required>
+              <option value="">-- Seleccione el motivo --</option>
+              <option value="Compra de materiales">🛒 Compra de materiales / repuestos</option>
+              <option value="Programación con producción">📅 Programación con producción / ventana operativa</option>
+              <option value="Espera de aprobación">⏳ Espera de aprobación / autorización técnica o gerencial</option>
+              <option value="Otro motivo">📝 Otro motivo (especificar en detalle)</option>
+            </select>
+            <span class="form-hint" id="detenerMotivoHint">Indique la causa principal por la cual se suspende o pausa la atención de esta OT.</span>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label class="form-label">Fecha y Hora de Detención <span class="req">*</span></label>
+            <div class="input-with-action">
+              <input type="datetime-local" id="detenerFechaHora" class="form-control" required>
+              <button type="button" class="btn btn-outline btn-sm" id="btnSetNowDetener">Ahora</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Detalle / Justificación de la Espera <span class="req">*</span></label>
+            <textarea id="detenerDetalle" class="form-control" rows="3" placeholder="Ej: Falta repuesto (código o descripción), número de cotización o requerimiento de compras, fecha estimada de llegada o ventana acordada con producción..." required></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" data-close-modal>Cancelar</button>
+          <button type="submit" class="btn btn-warning" style="background: #ea580c; border-color: #ea580c; color: white;">
+            <span>⏸️</span> Registrar Detenimiento
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ANULAR / ELIMINAR ORDEN DE TRABAJO (BAJA REGISTRADA) -->
+  <div class="modal-backdrop" id="modalCancelarOT">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 style="color: #dc2626;"><span>🗑️</span> Anular / Eliminar Orden de Trabajo</h3>
+        <button class="modal-close-btn" data-close-modal>&times;</button>
+      </div>
+      <form id="formCancelarOT">
+        <input type="hidden" id="cancelarSolId">
+        <div class="modal-body">
+          <div style="background: var(--bg-subtle); padding: 0.75rem; border-radius: var(--radius-sm); margin-bottom: 1rem; border-left: 4px solid #dc2626;">
+            <p style="font-size: 0.88rem; color: var(--text-muted); margin: 0;" id="cancelarInfoSol">
+              Cargando información de la orden...
+            </p>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label class="form-label">Motivo de Anulación / Eliminación <span class="req">*</span></label>
+            <select id="cancelarMotivo" class="form-control" required>
+              <option value="">-- Seleccione el motivo de la baja --</option>
+              <option value="Solicitud duplicada">📑 Solicitud duplicada (ya reportada previamente)</option>
+              <option value="Error en reporte / Falsa alarma">⚠️ Error en reporte / Falsa alarma (equipo operativo)</option>
+              <option value="Cancelada por solicitante / Producción">🏭 Cancelada por el solicitante / Producción</option>
+              <option value="Inviabilidad técnica o económica">🚫 Inviabilidad técnica o económica / Equipo dado de baja</option>
+              <option value="Repuestos descontinuados / obsoletos">📦 Repuestos descontinuados / obsoletos</option>
+              <option value="Otro motivo">📝 Otro motivo (especificar en la justificación)</option>
+            </select>
+            <span class="form-hint">Este motivo quedará archivado permanentemente en el historial y será visible en la ficha técnica y para Producción.</span>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label class="form-label">Fecha y Hora de la Baja <span class="req">*</span></label>
+            <div class="input-with-action">
+              <input type="datetime-local" id="cancelarFechaHora" class="form-control" required>
+              <button type="button" class="btn btn-outline btn-sm" id="btnSetNowCancelar">Ahora</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Justificación Detallada del Descarte <span class="req">*</span></label>
+            <textarea id="cancelarDetalle" class="form-control" rows="3" placeholder="Explique detalladamente por qué se da de baja este reporte técnico (ej. Folio duplicado con SOL-004, o equipo probado con operador y operando bajo parámetros)..." required></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" data-close-modal>Cancelar</button>
+          <button type="submit" class="btn btn-danger" style="background: #dc2626; border-color: #dc2626; color: white;">
+            <span>🗑️</span> Confirmar Anulación
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- MODAL: CULMINAR INTERVENCIÓN (CIERRE TÉCNICO Y CÁLCULO DE PARADA) -->
   <div class="modal-backdrop" id="modalCulminar">
     <div class="modal-dialog modal-lg">
       <div class="modal-header">
-        <h3><span>✅</span> Culminar Intervención y Cierre de Parada</h3>
+        <h3 id="modalCulminarTitle"><span>✅</span> Culminar Intervención y Cierre de Parada</h3>
         <button class="modal-close-btn" data-close-modal>&times;</button>
       </div>
       <form id="formCulminar">
@@ -970,8 +1120,11 @@
 
           <div class="form-grid">
             <div class="form-group">
-              <label class="form-label">Fecha y Hora de Inicio <span class="req">*</span></label>
-              <input type="datetime-local" id="culminarFechaInicio" class="form-control" required>
+              <label class="form-label" id="lblCulminarFechaInicio">Fecha y Hora de Inicio <span class="req">*</span></label>
+              <div class="input-with-action">
+                <input type="datetime-local" id="culminarFechaInicio" class="form-control" required>
+                <button type="button" class="btn btn-outline btn-sm" id="btnSetFechaSolicitud" style="display: none;" title="Usar la fecha y hora de emisión de la solicitud">Fecha Solicitud</button>
+              </div>
             </div>
 
             <div class="form-group">
@@ -982,12 +1135,12 @@
               </div>
             </div>
 
-            <!-- Caja de cálculo en vivo de Horas de Parada -->
+            <!-- Caja de cálculo en vivo de Horas de Parada / Tiempo de Atención -->
             <div class="form-group col-span-2">
-              <div class="downtime-calc-box">
+              <div class="downtime-calc-box" id="boxCulminarDowntime">
                 <div class="downtime-calc-label">
                   <span>⏱️</span>
-                  <span>TIEMPO TOTAL DE PARADA DEL EQUIPO (DOWNTIME):</span>
+                  <span id="labelCulminarDowntime">TIEMPO TOTAL DE PARADA DEL EQUIPO (DOWNTIME):</span>
                 </div>
                 <div class="downtime-calc-result" id="liveDowntimeCalc">
                   0h 00m (0.00 hrs)
@@ -996,12 +1149,12 @@
             </div>
 
             <div class="form-group col-span-2">
-              <label class="form-label">Diagnóstico Técnico de la Causa Raíz <span class="req">*</span></label>
+              <label class="form-label" id="lblCulminarDiagnostico">Diagnóstico Técnico de la Causa Raíz <span class="req">*</span></label>
               <textarea id="culminarDiagnostico" class="form-control" rows="2" placeholder="¿Cuál fue la causa exacta que originó la falla?" required></textarea>
             </div>
 
             <div class="form-group col-span-2">
-              <label class="form-label">Acción Correctiva / Solución Ejecutada <span class="req">*</span></label>
+              <label class="form-label" id="lblCulminarSolucion">Acción Correctiva / Solución Ejecutada <span class="req">*</span></label>
               <textarea id="culminarSolucion" class="form-control" rows="2" placeholder="Detalle de trabajos mecánicos, eléctricos o de calibración realizados..." required></textarea>
             </div>
 
@@ -1024,7 +1177,7 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline" data-close-modal>Cancelar</button>
-          <button type="submit" class="btn btn-success">Guardar y Cerrar Parada</button>
+          <button type="submit" class="btn btn-success" id="btnSubmitCulminar">Guardar y Cerrar Parada</button>
         </div>
       </form>
     </div>

@@ -44,24 +44,46 @@ class AnalyticsEngine {
     const solicitudes = this.getFilteredRequests(dateRange, customStart, customEnd);
     const totalSolicitudes = solicitudes.length;
 
-    let totalMinutosParada = 0;
+    let totalMinutosParada = 0;       // Solo para Averías de Equipos (Parada de planta)
+    let totalMinutosAtencion = 0;     // Para Requerimientos / Servicios de Área
     let culminadasCount = 0;
+    let averiasCulminadasCount = 0;
+    let requerimientosCulminadosCount = 0;
+    let averiasTotalCount = 0;
+    let requerimientosTotalCount = 0;
+
     let enIntervencionCount = 0;
     let pendientesCount = 0;
     let asignadasCount = 0;
+    let detenidasCount = 0;
+    let canceladasCount = 0;
     let costoTotalContratistas = 0;
     let cantidadContratistas = 0;
 
     solicitudes.forEach(s => {
+      const isReq = (s.tipoSolicitud === 'Requerimiento' || !s.equipoId);
+      if (isReq) requerimientosTotalCount++;
+      else averiasTotalCount++;
+
       if (s.estado === 'Culminada') {
         culminadasCount++;
-        totalMinutosParada += (s.minutosParadaTotal || 0);
+        if (isReq) {
+          requerimientosCulminadosCount++;
+          totalMinutosAtencion += (s.minutosAtencionTotal || s.minutosParadaTotal || 0);
+        } else {
+          averiasCulminadasCount++;
+          totalMinutosParada += (s.minutosParadaTotal || 0);
+        }
       } else if (s.estado === 'En Intervención') {
         enIntervencionCount++;
       } else if (s.estado === 'Pendiente') {
         pendientesCount++;
       } else if (s.estado === 'Asignada') {
         asignadasCount++;
+      } else if (s.estado === 'Detenida') {
+        detenidasCount++;
+      } else if (s.estado === 'Cancelada') {
+        canceladasCount++;
       }
 
       if (s.tipoEjecutor === 'Contratista' && s.contratista && s.contratista.costo) {
@@ -70,24 +92,31 @@ class AnalyticsEngine {
       }
     });
 
+    // Horas de Parada de Equipos (Downtime real de planta)
     const totalHorasDecimal = Number((totalMinutosParada / 60).toFixed(2));
     const h = Math.floor(totalMinutosParada / 60);
     const m = totalMinutosParada % 60;
     const totalHorasTexto = `${h}h ${m.toString().padStart(2, '0')}m`;
 
-    // MTTR (Mean Time To Repair en horas): Horas de parada / fallas culminadas
-    const mttrDecimal = culminadasCount > 0
-      ? Number((totalHorasDecimal / culminadasCount).toFixed(2))
+    // Tiempo de Atención de Requerimientos de Área (Servicios / Mejoras)
+    const totalAtencionDecimal = Number((totalMinutosAtencion / 60).toFixed(2));
+    const ah = Math.floor(totalMinutosAtencion / 60);
+    const am = totalMinutosAtencion % 60;
+    const totalAtencionTexto = `${ah}h ${am.toString().padStart(2, '0')}m`;
+
+    // MTTR (Mean Time To Repair en horas): Horas de parada / fallas de equipo culminadas
+    const mttrDecimal = averiasCulminadasCount > 0
+      ? Number((totalHorasDecimal / averiasCulminadasCount).toFixed(2))
       : 0;
 
-    // MTBF (Mean Time Between Failures): Tiempo operativo / fallas
+    // MTBF (Mean Time Between Failures): Tiempo operativo / averías de equipo
     // Estimación: Período activo (30 días * 24h = 720h base por equipo activo)
     const equipos = this.store.getEquipos();
     const cantEquipos = Math.max(equipos.length, 1);
     const horasPeriodoTotal = cantEquipos * 720; // 30 días base
     const tiempoOperativoNeto = Math.max(horasPeriodoTotal - totalHorasDecimal, 0);
-    const mtbfDecimal = culminadasCount > 0
-      ? Number((tiempoOperativoNeto / culminadasCount).toFixed(1))
+    const mtbfDecimal = averiasCulminadasCount > 0
+      ? Number((tiempoOperativoNeto / averiasCulminadasCount).toFixed(1))
       : horasPeriodoTotal;
 
     // Métricas de Preventivo
@@ -99,7 +128,7 @@ class AnalyticsEngine {
     const tasaCumplimientoPrev = totalPrev > 0 ? Math.round((prevAlDia / totalPrev) * 100) : 100;
 
     // Tasa de Resolución
-    const totalAbiertas = pendientesCount + asignadasCount + enIntervencionCount;
+    const totalAbiertas = pendientesCount + asignadasCount + enIntervencionCount + detenidasCount;
     const tasaResolucion = totalSolicitudes > 0
       ? Math.round((culminadasCount / totalSolicitudes) * 100)
       : 0;
@@ -108,14 +137,25 @@ class AnalyticsEngine {
 
     return {
       totalSolicitudes,
+      averiasTotalCount,
+      requerimientosTotalCount,
       culminadasCount,
+      averiasCulminadasCount,
+      requerimientosCulminadosCount,
       totalAbiertas,
       enIntervencionCount,
       pendientesCount,
       asignadasCount,
+      detenidasCount,
+      canceladasCount,
       totalMinutosParada,
       totalHorasDecimal,
       totalHorasTexto,
+      totalMinutosAtencion,
+      totalAtencionDecimal,
+      totalAtencionTexto,
+      totalHorasAtencionDecimal: totalAtencionDecimal,
+      totalHorasAtencionTexto: totalAtencionTexto,
       mttrDecimal,
       mtbfDecimal,
       costoTotalContratistas: Number(costoTotalContratistas.toFixed(2)),
@@ -132,9 +172,9 @@ class AnalyticsEngine {
     };
   }
 
-  // 1. Horas y Conteo de Paradas por Equipo
+  // 1. Horas y Conteo de Paradas por Equipo (Solo Averías con Equipo)
   getDowntimeByEquipment(dateRange = 'all') {
-    const solicitudes = this.getFilteredRequests(dateRange);
+    const solicitudes = this.getFilteredRequests(dateRange).filter(s => s.equipoId && s.tipoSolicitud !== 'Requerimiento');
     const map = {};
 
     solicitudes.forEach(s => {
@@ -184,16 +224,28 @@ class AnalyticsEngine {
           codigo: area ? area.codigo : 'N/A',
           nombre: area ? area.nombre : 'Área Desconocida',
           paradasCount: 0,
+          requerimientosCount: 0,
           minutosParada: 0,
+          minutosAtencion: 0,
           horasDecimal: 0,
+          horasAtencionDecimal: 0,
           costoTerceros: 0
         };
       }
 
-      map[s.areaId].paradasCount++;
-      if (s.estado === 'Culminada') {
-        map[s.areaId].minutosParada += (s.minutosParadaTotal || 0);
+      const isReq = (s.tipoSolicitud === 'Requerimiento' || !s.equipoId);
+      if (isReq) {
+        map[s.areaId].requerimientosCount++;
+        if (s.estado === 'Culminada') {
+          map[s.areaId].minutosAtencion += (s.minutosAtencionTotal || s.minutosParadaTotal || 0);
+        }
+      } else {
+        map[s.areaId].paradasCount++;
+        if (s.estado === 'Culminada') {
+          map[s.areaId].minutosParada += (s.minutosParadaTotal || 0);
+        }
       }
+
       if (s.tipoEjecutor === 'Contratista' && s.contratista && s.contratista.costo) {
         map[s.areaId].costoTerceros += Number(s.contratista.costo) || 0;
       }
@@ -203,7 +255,9 @@ class AnalyticsEngine {
       .map(item => ({
         ...item,
         horasDecimal: Number((item.minutosParada / 60).toFixed(2)),
-        horasTexto: `${Math.floor(item.minutosParada / 60)}h ${(item.minutosParada % 60).toString().padStart(2, '0')}m`
+        horasTexto: `${Math.floor(item.minutosParada / 60)}h ${(item.minutosParada % 60).toString().padStart(2, '0')}m`,
+        horasAtencionDecimal: Number((item.minutosAtencion / 60).toFixed(2)),
+        horasAtencionTexto: `${Math.floor(item.minutosAtencion / 60)}h ${(item.minutosAtencion % 60).toString().padStart(2, '0')}m`
       }))
       .sort((a, b) => b.paradasCount - a.paradasCount);
   }
@@ -234,7 +288,7 @@ class AnalyticsEngine {
         map[s.tecnicoId].asignadas++;
         if (s.estado === 'Culminada') {
           map[s.tecnicoId].culminadas++;
-          map[s.tecnicoId].totalMinutos += (s.minutosParadaTotal || 0);
+          map[s.tecnicoId].totalMinutos += (s.minutosParadaTotal || 0) + (s.minutosAtencionTotal || 0);
         } else if (s.estado === 'En Intervención' || s.estado === 'Asignada') {
           map[s.tecnicoId].enProceso++;
         }
@@ -348,6 +402,7 @@ class AnalyticsEngine {
     const enIntervencion = kpis.enIntervencionCount;
     const asignadas = kpis.asignadasCount;
     const pendientes = kpis.pendientesCount;
+    const detenidas = kpis.detenidasCount || 0;
     const total = kpis.totalSolicitudes;
 
     if (total === 0) {
@@ -357,19 +412,34 @@ class AnalyticsEngine {
 
     const pctCulm = Math.round((culminadas / total) * 100);
     const pctProc = Math.round(((enIntervencion + asignadas) / total) * 100);
+    const pctDet = Math.round((detenidas / total) * 100);
     const pctPend = Math.round((pendientes / total) * 100);
+
+    let segmentsHtml = `
+      <div class="progress-segment seg-success" style="width: ${pctCulm}%;" title="Culminadas: ${culminadas} (${pctCulm}%)"></div>
+      <div class="progress-segment seg-warning" style="width: ${pctProc}%;" title="En Proceso: ${enIntervencion + asignadas} (${pctProc}%)"></div>
+    `;
+    if (detenidas > 0) {
+      segmentsHtml += `<div class="progress-segment" style="width: ${pctDet}%; background: #ea580c;" title="Detenidas: ${detenidas} (${pctDet}%)"></div>`;
+    }
+    segmentsHtml += `<div class="progress-segment seg-danger" style="width: ${pctPend}%;" title="Pendientes: ${pendientes} (${pctPend}%)"></div>`;
+
+    let legendHtml = `
+      <div class="legend-item"><span class="legend-dot dot-success"></span><strong>Culminadas:</strong> ${culminadas} (${pctCulm}%)</div>
+      <div class="legend-item"><span class="legend-dot dot-warning"></span><strong>En Proceso:</strong> ${enIntervencion + asignadas} (${pctProc}%)</div>
+    `;
+    if (detenidas > 0) {
+      legendHtml += `<div class="legend-item"><span class="legend-dot" style="background: #ea580c;"></span><strong>Detenidas:</strong> ${detenidas} (${pctDet}%)</div>`;
+    }
+    legendHtml += `<div class="legend-item"><span class="legend-dot dot-danger"></span><strong>Pendientes:</strong> ${pendientes} (${pctPend}%)</div>`;
 
     container.innerHTML = `
       <div class="status-comparison-card">
         <div class="progress-stacked-bar">
-          <div class="progress-segment seg-success" style="width: ${pctCulm}%;" title="Culminadas: ${culminadas} (${pctCulm}%)"></div>
-          <div class="progress-segment seg-warning" style="width: ${pctProc}%;" title="En Proceso: ${enIntervencion + asignadas} (${pctProc}%)"></div>
-          <div class="progress-segment seg-danger" style="width: ${pctPend}%;" title="Pendientes: ${pendientes} (${pctPend}%)"></div>
+          ${segmentsHtml}
         </div>
         <div class="status-legend-grid">
-          <div class="legend-item"><span class="legend-dot dot-success"></span><strong>Culminadas:</strong> ${culminadas} (${pctCulm}%)</div>
-          <div class="legend-item"><span class="legend-dot dot-warning"></span><strong>En Proceso:</strong> ${enIntervencion + asignadas} (${pctProc}%)</div>
-          <div class="legend-item"><span class="legend-dot dot-danger"></span><strong>Pendientes:</strong> ${pendientes} (${pctPend}%)</div>
+          ${legendHtml}
         </div>
       </div>
     `;
@@ -520,8 +590,8 @@ class AnalyticsEngine {
         costo,
         s.fechaInicio || '',
         s.fechaFin || '',
-        s.horasParadaDecimal || 0,
-        s.horasParadaTexto || '0h 00m',
+        (s.tipoSolicitud === 'Requerimiento' ? (s.horasAtencionDecimal || 0) : (s.horasParadaDecimal || 0)),
+        (s.tipoSolicitud === 'Requerimiento' ? (s.horasAtencionTexto || '0h 00m') : (s.horasParadaTexto || '0h 00m')),
         `"${(s.diagnostico || '').replace(/"/g, '""')}"`,
         `"${(s.solucion || '').replace(/"/g, '""')}"`,
         `"${(s.repuestos || '').replace(/"/g, '""')}"`,

@@ -402,6 +402,75 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // ==========================================================================
   // VISTA 1: PORTAL DE PRODUCCIÓN (SOLICITUDES)
+  // Helper para resetear formulario de nueva solicitud con valores limpios
+  const resetNuevaSolicitudForm = () => {
+    populateAreaSelects();
+    const form = document.getElementById('formNuevaSolicitud');
+    if (form) form.reset();
+
+    const tipoSel = document.getElementById('solTipoSolicitud');
+    if (tipoSel) tipoSel.value = 'Averia';
+
+    const groupEquipo = document.getElementById('groupSolEquipo');
+    if (groupEquipo) groupEquipo.style.display = 'block';
+
+    const eqSel = document.getElementById('solEquipoId');
+    if (eqSel) {
+      eqSel.innerHTML = '<option value="">Primero seleccione el área...</option>';
+      eqSel.disabled = true;
+      eqSel.required = true;
+    }
+
+    const lblDesc = document.getElementById('lblSolDescripcion');
+    if (lblDesc) lblDesc.innerHTML = 'Detalles de la Falla / Síntoma <span class="req">*</span>';
+
+    const descInput = document.getElementById('solDescripcion');
+    if (descInput) descInput.placeholder = 'Describa el síntoma, ruido, mensaje de error en panel o fuga detectada...';
+
+    const helpText = document.getElementById('solTipoHelpText');
+    if (helpText) {
+      helpText.innerHTML = '⚙️ <strong>Avería de Equipo:</strong> Se asociará a una máquina específica y computará dentro de las <em>Horas de Parada de Planta (MTTR/MTBF)</em>.';
+    }
+  };
+
+  // Listener para cambio entre Avería de Equipo y Requerimiento de Área
+  const solTipoSel = document.getElementById('solTipoSolicitud');
+  if (solTipoSel) {
+    solTipoSel.addEventListener('change', (e) => {
+      const tipo = e.target.value;
+      const groupEquipo = document.getElementById('groupSolEquipo');
+      const eqSel = document.getElementById('solEquipoId');
+      const lblDesc = document.getElementById('lblSolDescripcion');
+      const descInput = document.getElementById('solDescripcion');
+      const helpText = document.getElementById('solTipoHelpText');
+
+      if (tipo === 'Requerimiento') {
+        if (groupEquipo) groupEquipo.style.display = 'none';
+        if (eqSel) {
+          eqSel.required = false;
+          eqSel.value = '';
+        }
+        if (lblDesc) lblDesc.innerHTML = 'Descripción del Requerimiento / Trabajo Solicitado <span class="req">*</span>';
+        if (descInput) descInput.placeholder = 'Detalle el trabajo, mejora, instalación, adecuación o servicio requerido para esta área...';
+        if (helpText) {
+          helpText.innerHTML = '📋 <strong>Requerimiento de Área:</strong> Trabajo general o servicio del área. <strong>NO computa parada de maquinaria</strong> (la planta sigue operando). Se computará como tiempo de atención.';
+        }
+      } else {
+        if (groupEquipo) groupEquipo.style.display = 'block';
+        if (eqSel) {
+          eqSel.required = true;
+        }
+        if (lblDesc) lblDesc.innerHTML = 'Detalles de la Falla / Síntoma <span class="req">*</span>';
+        if (descInput) descInput.placeholder = 'Describa el síntoma, ruido, mensaje de error en panel o fuga detectada...';
+        if (helpText) {
+          helpText.innerHTML = '⚙️ <strong>Avería de Equipo:</strong> Se asociará a una máquina específica y computará dentro de las <em>Horas de Parada de Planta (MTTR/MTBF)</em>.';
+        }
+      }
+    });
+  }
+
+  // ==========================================================================
+  // VISTA 1: PORTAL DE PRODUCCIÓN (SOLICITUDES)
   // ==========================================================================
   const renderProduccion = () => {
     populateAreaSelects();
@@ -409,11 +478,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!tbody) return;
 
     const search = (document.getElementById('searchProd')?.value || '').toLowerCase();
+    const tipoFilter = document.getElementById('filterTipoProd')?.value || 'Todos';
     const areaFilter = document.getElementById('filterAreaProd')?.value || 'Todas';
     const estadoFilter = document.getElementById('filterEstadoProd')?.value || 'Todos';
 
     let solicitudes = store.getSolicitudes();
 
+    if (tipoFilter !== 'Todos') {
+      solicitudes = solicitudes.filter(s => {
+        const isReq = (s.tipoSolicitud === 'Requerimiento' || !s.equipoId);
+        return tipoFilter === 'Requerimiento' ? isReq : !isReq;
+      });
+    }
     if (areaFilter !== 'Todas') solicitudes = solicitudes.filter(s => s.areaId === areaFilter);
     if (estadoFilter !== 'Todos') solicitudes = solicitudes.filter(s => s.estado === estadoFilter);
     if (search) {
@@ -444,7 +520,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           </div>
         `;
       }
-      tbody.innerHTML = `<tr><td colspan="10" class="text-center text-muted" style="padding: 2rem;">${msg}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="11" class="text-center text-muted" style="padding: 2rem;">${msg}</td></tr>`;
       return;
     }
 
@@ -452,10 +528,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       const area = store.getAreaById(s.areaId);
       const eq = store.getEquipoById(s.equipoId);
       const tec = s.tecnicoId ? store.getEmpleadoById(s.tecnicoId) : null;
+      const isReq = (s.tipoSolicitud === 'Requerimiento' || !s.equipoId);
+
+      const tipoBadge = isReq
+        ? `<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; font-weight:600;">📋 Requerimiento</span>`
+        : `<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:600;">🛠️ Avería</span>`;
+
+      const equipoHtml = isReq
+        ? `<span class="badge badge-outline" style="background:var(--bg-hover);">🏢 Área General</span><br><small class="text-muted">Sin equipo</small>`
+        : `<strong>${eq ? eq.codigo : 'N/A'}</strong><br><small class="text-muted">${eq ? eq.nombre : ''}</small>`;
 
       let estadoBadge = `<span class="badge badge-warning">🕒 Pendiente</span>`;
       if (s.estado === 'Asignada') estadoBadge = `<span class="badge badge-info">👷 Asignada</span>`;
       else if (s.estado === 'En Intervención') estadoBadge = `<span class="badge badge-primary">⚙️ En Intervención</span>`;
+      else if (s.estado === 'Detenida') estadoBadge = `<span class="badge" style="background:#fed7aa; color:#c2410c; border:1px solid #fdba74; font-weight:600;">⏸️ Detenida</span><br><small style="color:#c2410c; font-weight:600;">${s.motivoDetenimiento || 'En espera'}</small>`;
+      else if (s.estado === 'Cancelada') estadoBadge = `<span class="badge" style="background:#f3f4f6; color:#4b5563; border:1px solid #d1d5db; font-weight:600;">🗑️ Cancelada</span><br><small style="color:#6b7280; font-weight:600;">${s.motivoCancelacion || 'Anulada'}</small>`;
       else if (s.estado === 'Culminada') estadoBadge = `<span class="badge badge-success">✅ Culminada</span>`;
 
       let critBadge = `<span class="badge badge-warning">🟡 Media</span>`;
@@ -471,16 +558,42 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       const tiempoTexto = s.estado === 'Culminada'
-        ? `<strong class="text-danger">${s.horasParadaTexto || '0h 00m'}</strong>`
-        : (s.estado === 'En Intervención' ? '<span class="text-warning">En curso...</span>' : '-');
+        ? (isReq
+            ? `<strong style="color: #0284c7;">⏱️ ${s.horasAtencionTexto || s.horasParadaTexto || '0h 00m'}</strong><br><small class="text-muted">Atención Área (${s.horasAtencionDecimal || 0} hrs)</small>`
+            : `<strong class="text-danger">🛑 ${s.horasParadaTexto || '0h 00m'}</strong><br><small class="text-muted">Parada Equipo (${s.horasParadaDecimal || 0} hrs)</small>`)
+        : (s.estado === 'Cancelada'
+            ? '<span class="text-muted">Desestimada</span>'
+            : (s.estado === 'Detenida'
+                ? '<span style="color:#c2410c; font-weight:600;">⏸️ En pausa</span>'
+                : (s.estado === 'En Intervención'
+                    ? (isReq
+                        ? (() => {
+                            const startLive = s.fechaInicio || s.fechaSolicitud;
+                            const liveCalc = startLive ? store.calcularHorasParada(startLive, getLocalDateTimeString()) : null;
+                            const liveText = liveCalc && liveCalc.texto !== '0h 00m' ? ` (${liveCalc.texto})` : '';
+                            return `<span style="color:#0284c7; font-weight:600;">⚙️ En atención${liveText}</span>`;
+                          })()
+                        : (() => {
+                            const liveCalc = s.fechaInicio ? store.calcularHorasParada(s.fechaInicio, getLocalDateTimeString()) : null;
+                            const liveText = liveCalc && liveCalc.texto !== '0h 00m' ? ` (${liveCalc.texto})` : '';
+                            return `<span class="text-warning">⚙️ En curso${liveText}</span>`;
+                          })())
+                    : (isReq
+                        ? (() => {
+                            const waitCalc = s.fechaSolicitud ? store.calcularHorasParada(s.fechaSolicitud, getLocalDateTimeString()) : null;
+                            const waitText = waitCalc && waitCalc.texto !== '0h 00m' ? ` (${waitCalc.texto})` : '';
+                            return `<span class="text-muted">⏱️ En espera${waitText}</span>`;
+                          })()
+                        : '-'))));
 
       return `
         <tr>
           <td><strong>SOL-${String(s.folio).padStart(3, '0')}</strong></td>
           <td><small>${s.fechaSolicitud.replace('T', ' ')}</small></td>
+          <td>${tipoBadge}</td>
           <td><span class="badge badge-outline">${area ? area.codigo : 'N/A'}</span></td>
-          <td><strong>${eq ? eq.codigo : 'N/A'}</strong><br><small class="text-muted">${eq ? eq.nombre : ''}</small></td>
-          <td><div style="max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${s.descripcion}">${s.descripcion}</div></td>
+          <td>${equipoHtml}</td>
+          <td><div style="max-width: 230px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${s.descripcion}">${s.descripcion}</div></td>
           <td>${critBadge}</td>
           <td>${estadoBadge}</td>
           <td>${atendidoPor}</td>
@@ -499,20 +612,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnOpenModalProd = document.getElementById('btnOpenModalNuevaSolicitudProd');
   if (btnOpenModalProd) {
     btnOpenModalProd.addEventListener('click', () => {
-      populateAreaSelects();
-      const form = document.getElementById('formNuevaSolicitud');
-      if (form) form.reset();
-      const eqSel = document.getElementById('solEquipoId');
-      if (eqSel) {
-        eqSel.innerHTML = '<option value="">Primero seleccione el área...</option>';
-        eqSel.disabled = true;
-      }
+      resetNuevaSolicitudForm();
       openModal('modalNuevaSolicitud');
     });
   }
 
   // Filtros de Producción
-  ['searchProd', 'filterAreaProd', 'filterEstadoProd'].forEach(id => {
+  ['searchProd', 'filterTipoProd', 'filterAreaProd', 'filterEstadoProd'].forEach(id => {
     document.getElementById(id)?.addEventListener('input', renderProduccion);
   });
 
@@ -526,12 +632,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!tbody) return;
 
     const search = (document.getElementById('searchGerencia')?.value || '').toLowerCase();
+    const tipoFilter = document.getElementById('filterTipoGerencia')?.value || 'Todos';
     const areaFilter = document.getElementById('filterAreaGerencia')?.value || 'Todas';
     const estadoFilter = document.getElementById('filterEstadoGerencia')?.value || 'Todos';
     const critFilter = document.getElementById('filterCriticidadGerencia')?.value || 'Todas';
 
     let solicitudes = store.getSolicitudes();
 
+    if (tipoFilter !== 'Todos') {
+      solicitudes = solicitudes.filter(s => {
+        const isReq = (s.tipoSolicitud === 'Requerimiento' || !s.equipoId);
+        return tipoFilter === 'Requerimiento' ? isReq : !isReq;
+      });
+    }
     if (areaFilter !== 'Todas') solicitudes = solicitudes.filter(s => s.areaId === areaFilter);
     if (estadoFilter !== 'Todos') solicitudes = solicitudes.filter(s => s.estado === estadoFilter);
     if (critFilter !== 'Todas') solicitudes = solicitudes.filter(s => s.criticidad === critFilter);
@@ -556,7 +669,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (countLabel) countLabel.textContent = `${solicitudes.length} órdenes registradas`;
 
     if (solicitudes.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="11" class="text-center text-muted" style="padding: 2.5rem;">No hay órdenes que coincidan con los filtros.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="12" class="text-center text-muted" style="padding: 2.5rem;">No hay órdenes que coincidan con los filtros.</td></tr>`;
       return;
     }
 
@@ -567,10 +680,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       const area = store.getAreaById(s.areaId);
       const eq = store.getEquipoById(s.equipoId);
       const tec = s.tecnicoId ? store.getEmpleadoById(s.tecnicoId) : null;
+      const isReq = (s.tipoSolicitud === 'Requerimiento' || !s.equipoId);
+
+      const tipoBadge = isReq
+        ? `<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; font-weight:600;">📋 Requerimiento</span>`
+        : `<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:600;">🛠️ Avería</span>`;
+
+      const equipoHtml = isReq
+        ? `<span class="badge badge-outline" style="background:var(--bg-hover);">🏢 Área General</span><br><small class="text-muted">Sin equipo</small>`
+        : `<strong>${eq ? eq.codigo : 'N/A'}</strong><br><small class="text-muted">${eq ? eq.nombre : ''}</small>`;
 
       let estadoBadge = `<span class="badge badge-warning">🕒 Pendiente</span>`;
       if (s.estado === 'Asignada') estadoBadge = `<span class="badge badge-info">👷 Asignada</span>`;
       else if (s.estado === 'En Intervención') estadoBadge = `<span class="badge badge-primary">⚙️ En Intervención</span>`;
+      else if (s.estado === 'Detenida') estadoBadge = `<span class="badge" style="background:#fed7aa; color:#c2410c; border:1px solid #fdba74; font-weight:600;">⏸️ Detenida</span><br><small style="color:#c2410c; font-weight:600;">${s.motivoDetenimiento || 'En espera'}</small>`;
+      else if (s.estado === 'Cancelada') estadoBadge = `<span class="badge" style="background:#f3f4f6; color:#4b5563; border:1px solid #d1d5db; font-weight:600;">🗑️ Cancelada</span><br><small style="color:#6b7280; font-weight:600;">${s.motivoCancelacion || 'Anulada'}</small>`;
       else if (s.estado === 'Culminada') estadoBadge = `<span class="badge badge-success">✅ Culminada</span>`;
 
       let critBadge = `<span class="badge badge-warning">🟡 Media</span>`;
@@ -590,9 +714,24 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       let horasHtml = '-';
       if (s.estado === 'Culminada') {
-        horasHtml = `<strong class="text-danger">${s.horasParadaTexto || '0h 00m'}</strong><br><small class="text-muted">${s.horasParadaDecimal} hrs</small>`;
+        horasHtml = isReq
+          ? `<strong style="color: #0284c7;">⏱️ ${s.horasAtencionTexto || s.horasParadaTexto || '0h 00m'}</strong><br><small class="text-muted">Atención Área (${s.horasAtencionDecimal || 0} hrs)</small>`
+          : `<strong class="text-danger">🛑 ${s.horasParadaTexto || '0h 00m'}</strong><br><small class="text-muted">Parada (${s.horasParadaDecimal || 0} hrs)</small>`;
+      } else if (s.estado === 'Detenida') {
+        horasHtml = `<span style="color: #c2410c; font-weight: 600;">⏸️ Pausada</span><br><small class="text-muted">${s.fechaDetenimiento ? s.fechaDetenimiento.slice(5, 16) : ''}</small>`;
+      } else if (s.estado === 'Cancelada') {
+        horasHtml = `<span class="text-muted">Desestimada</span>`;
       } else if (s.estado === 'En Intervención') {
-        horasHtml = `<span class="text-warning">⚙️ En curso</span>`;
+        const startLive = isReq ? (s.fechaInicio || s.fechaSolicitud) : s.fechaInicio;
+        const liveCalc = startLive ? store.calcularHorasParada(startLive, getLocalDateTimeString()) : null;
+        const liveText = liveCalc && liveCalc.texto !== '0h 00m' ? ` (${liveCalc.texto})` : '';
+        horasHtml = isReq
+          ? `<span style="color: #0284c7; font-weight: 600;">⚙️ En atención${liveText}</span>`
+          : `<span class="text-warning">⚙️ En curso${liveText}</span>`;
+      } else if (isReq && (s.estado === 'Pendiente' || s.estado === 'Asignada')) {
+        const waitCalc = s.fechaSolicitud ? store.calcularHorasParada(s.fechaSolicitud, getLocalDateTimeString()) : null;
+        const waitText = waitCalc && waitCalc.texto !== '0h 00m' ? `<br><small class="text-muted">${waitCalc.texto} esperando</small>` : '';
+        horasHtml = `<span class="text-muted">⏱️ En espera${waitText}</span>`;
       }
 
       let fechasRango = '-';
@@ -609,20 +748,65 @@ document.addEventListener('DOMContentLoaded', async () => {
           <button class="btn btn-primary btn-sm" onclick="window.cmmsAbrirAsignar('${s.id}')">
             <span>👷</span> Asignar
           </button>
+          <button class="btn btn-outline btn-sm" onclick="window.cmmsAbrirDetener('${s.id}')" title="Detener / Pausar OT">
+            <span>⏸️</span>
+          </button>
+          <button class="btn btn-outline btn-sm" style="color:#dc2626;" onclick="window.cmmsAbrirCancelar('${s.id}')" title="Anular / Eliminar Solicitud">
+            <span>🗑️</span>
+          </button>
         `;
       } else if (s.estado === 'Asignada') {
         actionButtons = `
           <button class="btn btn-warning btn-sm" onclick="window.cmmsAbrirIniciar('${s.id}')">
             <span>⚙️</span> Iniciar OT
           </button>
+          <button class="btn btn-success btn-sm" onclick="window.cmmsAbrirCulminar('${s.id}')" title="Culminar y registrar atención">
+            <span>✅</span> Culminar
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="window.cmmsAbrirDetener('${s.id}')" title="Detener / Pausar OT">
+            <span>⏸️</span>
+          </button>
           <button class="btn btn-outline btn-sm" onclick="window.cmmsAbrirAsignar('${s.id}')" title="Reasignar">
             <span>✏️</span>
+          </button>
+          <button class="btn btn-outline btn-sm" style="color:#dc2626;" onclick="window.cmmsAbrirCancelar('${s.id}')" title="Anular / Eliminar OT">
+            <span>🗑️</span>
           </button>
         `;
       } else if (s.estado === 'En Intervención') {
         actionButtons = `
           <button class="btn btn-success btn-sm" onclick="window.cmmsAbrirCulminar('${s.id}')">
             <span>✅</span> Culminar
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="window.cmmsAbrirDetener('${s.id}')" title="Detener / Pausar OT">
+            <span>⏸️</span>
+          </button>
+          <button class="btn btn-outline btn-sm" style="color:#dc2626;" onclick="window.cmmsAbrirCancelar('${s.id}')" title="Anular / Eliminar OT">
+            <span>🗑️</span>
+          </button>
+        `;
+      } else if (s.estado === 'Detenida') {
+        actionButtons = `
+          <button class="btn btn-primary btn-sm" style="background: #16a34a; border-color: #16a34a; color: white;" onclick="window.cmmsReanudarOT('${s.id}')">
+            <span>▶️</span> Reanudar OT
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="window.cmmsAbrirDetener('${s.id}')" title="Modificar Detenimiento">
+            <span>✏️</span>
+          </button>
+          <button class="btn btn-outline btn-sm" style="color:#dc2626;" onclick="window.cmmsAbrirCancelar('${s.id}')" title="Anular / Eliminar OT">
+            <span>🗑️</span>
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="window.cmmsVerDetalle('${s.id}')" title="Ver Ficha">
+            <span>📄</span>
+          </button>
+        `;
+      } else if (s.estado === 'Cancelada') {
+        actionButtons = `
+          <button class="btn btn-outline btn-sm" onclick="window.cmmsReactivarOT('${s.id}')" title="Reactivar Solicitud / OT">
+            <span>♻️</span> Reactivar
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="window.cmmsVerDetalle('${s.id}')" title="Ficha Técnica y Motivo de Baja">
+            <span>📄</span> Ficha
           </button>
         `;
       } else {
@@ -637,8 +821,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         <tr>
           <td><strong>SOL-${String(s.folio).padStart(3, '0')}</strong></td>
           <td><small>${s.fechaSolicitud.replace('T', ' ')}</small></td>
+          <td>${tipoBadge}</td>
           <td><span class="badge badge-outline">${area ? area.codigo : 'N/A'}</span></td>
-          <td><strong>${eq ? eq.codigo : 'N/A'}</strong><br><small class="text-muted">${eq ? eq.nombre : ''}</small></td>
+          <td>${equipoHtml}</td>
           <td><div style="max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${s.descripcion}">${s.descripcion}</div></td>
           <td>${critBadge}</td>
           <td>${estadoBadge}</td>
@@ -652,16 +837,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
 
   // Filtros de Gerencia
-  ['searchGerencia', 'filterAreaGerencia', 'filterEstadoGerencia', 'filterCriticidadGerencia'].forEach(id => {
+  ['searchGerencia', 'filterTipoGerencia', 'filterAreaGerencia', 'filterEstadoGerencia', 'filterCriticidadGerencia'].forEach(id => {
     document.getElementById(id)?.addEventListener('input', renderGerencia);
   });
 
   const btnOpenModalGerencia = document.getElementById('btnOpenModalNuevaSolicitudGerencia');
   if (btnOpenModalGerencia) {
     btnOpenModalGerencia.addEventListener('click', () => {
-      populateAreaSelects();
-      const form = document.getElementById('formNuevaSolicitud');
-      if (form) form.reset();
+      resetNuevaSolicitudForm();
       openModal('modalNuevaSolicitud');
     });
   }
@@ -855,8 +1038,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     const costData = analytics.getContractorCostAnalytics(dateRangeMetricas);
 
     // 1. Tarjetas de KPIs
-    document.getElementById('kpiTotalDowntime').textContent = kpis.totalHorasTexto;
-    document.getElementById('kpiTotalDowntimeDec').textContent = `${kpis.totalHorasDecimal} horas acumuladas`;
+    const kpiDown = document.getElementById('kpiTotalDowntime');
+    if (kpiDown) kpiDown.textContent = kpis.totalHorasTexto;
+    const kpiDownDec = document.getElementById('kpiTotalDowntimeDec');
+    if (kpiDownDec) kpiDownDec.textContent = `${kpis.totalHorasDecimal} hrs (${kpis.averiasCulminadasCount || 0} averías)`;
+
+    const kpiAtencion = document.getElementById('kpiTotalAtencion');
+    if (kpiAtencion) kpiAtencion.textContent = kpis.totalAtencionTexto || kpis.totalHorasAtencionTexto || '0h 00m';
+    const kpiAtencionSub = document.getElementById('kpiTotalAtencionSub');
+    if (kpiAtencionSub) kpiAtencionSub.textContent = `${kpis.totalAtencionDecimal || kpis.totalHorasAtencionDecimal || 0} hrs (${kpis.requerimientosCulminadosCount || 0} req. atendidos)`;
 
     document.getElementById('kpiMTTR').textContent = `${kpis.mttrDecimal} hrs`;
     document.getElementById('kpiMTBF').textContent = `${kpis.mtbfDecimal} hrs`;
@@ -1080,38 +1270,43 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // ==========================================================================
-  // FORMULARIO: CREAR SOLICITUD DE FALLA
+  // FORMULARIO: CREAR SOLICITUD DE FALLA O REQUERIMIENTO
   // ==========================================================================
   const formNuevaSolicitud = document.getElementById('formNuevaSolicitud');
   if (formNuevaSolicitud) {
     formNuevaSolicitud.addEventListener('submit', async (e) => {
       e.preventDefault();
+      const tipoSolicitud = document.getElementById('solTipoSolicitud')?.value || 'Averia';
       const solicitante = document.getElementById('solSolicitante').value.trim();
       const turno = document.getElementById('solTurno').value;
       const areaId = document.getElementById('solAreaId').value;
-      const equipoId = document.getElementById('solEquipoId').value;
+      const equipoId = document.getElementById('solEquipoId')?.value || null;
       const tipoFalla = document.getElementById('solTipoFalla').value;
       const criticidad = document.getElementById('solCriticidad').value;
       const descripcion = document.getElementById('solDescripcion').value.trim();
 
-      if (!solicitante || !areaId || !equipoId || !descripcion) {
-        showToast('Complete todos los campos obligatorios.', 'error');
+      const isAveria = (tipoSolicitud === 'Averia');
+      if (!solicitante || !areaId || (isAveria && !equipoId) || !descripcion) {
+        showToast(isAveria ? 'Complete todos los campos obligatorios incluyendo el equipo.' : 'Complete todos los campos obligatorios.', 'error');
         return;
       }
 
       const nueva = await store.createSolicitud({
+        tipoSolicitud,
+        fechaSolicitud: getLocalDateTimeString(),
         solicitante,
         turno,
         areaId,
-        equipoId,
+        equipoId: isAveria ? equipoId : null,
         tipoFalla,
         criticidad,
         descripcion
       });
 
       closeModal('modalNuevaSolicitud');
-      formNuevaSolicitud.reset();
-      showToast(`Solicitud SOL-${String(nueva.folio).padStart(3, '0')} emitida con éxito. Mantenimiento fue notificado.`, 'success');
+      resetNuevaSolicitudForm();
+      const tipoLabel = isAveria ? 'Avería de Equipo' : 'Requerimiento de Área';
+      showToast(`Solicitud SOL-${String(nueva.folio).padStart(3, '0')} (${tipoLabel}) emitida con éxito. Mantenimiento fue notificado.`, 'success');
 
       renderProduccion();
       renderGerencia();
@@ -1129,10 +1324,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     populateTecnicoSelects();
     document.getElementById('asigSolId').value = sol.id;
 
+    const isReq = (sol.tipoSolicitud === 'Requerimiento' || !sol.equipoId);
+    const area = store.getAreaById(sol.areaId);
     const eq = store.getEquipoById(sol.equipoId);
+
+    const tipoBadge = isReq
+      ? '<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; font-weight:600;">📋 Requerimiento de Área</span>'
+      : '<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:600;">🛠️ Avería de Equipo</span>';
+
+    const targetDesc = isReq
+      ? `Área: <strong>${area ? area.nombre : 'Área General'} (Sin equipo)</strong>`
+      : `Equipo: <strong>${eq ? eq.codigo : ''} - ${eq ? eq.nombre : ''}</strong>`;
+
     document.getElementById('asigInfoSol').innerHTML = `
-      Orden: <strong>SOL-${String(sol.folio).padStart(3, '0')}</strong> | Equipo: <strong>${eq ? eq.codigo : ''} - ${eq ? eq.nombre : ''}</strong><br>
-      Falla: <em>"${sol.descripcion}"</em>
+      Orden: <strong>SOL-${String(sol.folio).padStart(3, '0')}</strong> ${tipoBadge} | ${targetDesc}<br>
+      Asunto: <em>"${sol.descripcion}"</em>
     `;
 
     // Asignar fecha actual
@@ -1217,16 +1423,27 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // ==========================================================================
-  // MODAL Y FORMULARIO: INICIAR INTERVENCIÓN (INICIO PARADA)
+  // MODAL Y FORMULARIO: INICIAR INTERVENCIÓN (INICIO PARADA / ATENCIÓN)
   // ==========================================================================
   window.cmmsAbrirIniciar = (solId) => {
     const sol = store.getSolicitudById(solId);
     if (!sol) return;
 
     document.getElementById('iniciarSolId').value = sol.id;
+    const isReq = (sol.tipoSolicitud === 'Requerimiento' || !sol.equipoId);
     const eq = store.getEquipoById(sol.equipoId);
+    const area = store.getAreaById(sol.areaId);
+
+    const tipoBadge = isReq
+      ? '<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; font-weight:600;">📋 Requerimiento</span>'
+      : '<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:600;">🛠️ Avería</span>';
+
+    const targetDesc = isReq
+      ? `Área: <strong>${area ? area.nombre : 'Área General'} (Sin equipo)</strong>`
+      : `Equipo: <strong>${eq ? eq.codigo : ''} - ${eq ? eq.nombre : ''}</strong>`;
+
     document.getElementById('iniciarInfoSol').innerHTML = `
-      Iniciando OT: <strong>SOL-${String(sol.folio).padStart(3, '0')}</strong> en equipo <strong>${eq ? eq.codigo : ''}</strong>
+      Iniciando OT: <strong>SOL-${String(sol.folio).padStart(3, '0')}</strong> ${tipoBadge} | ${targetDesc}
     `;
 
     document.getElementById('iniciarFechaHora').value = getLocalDateTimeString();
@@ -1240,6 +1457,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('formIniciar')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const solId = document.getElementById('iniciarSolId').value;
+    const sol = store.getSolicitudById(solId);
+    const isReq = (sol && (sol.tipoSolicitud === 'Requerimiento' || !sol.equipoId));
     const fechaInicio = document.getElementById('iniciarFechaHora').value;
     const notas = document.getElementById('iniciarNotas').value.trim();
 
@@ -1250,22 +1469,193 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     closeModal('modalIniciar');
-    showToast('Intervención iniciada. Conteo de parada en curso.', 'success');
+    showToast(isReq ? 'Atención al requerimiento iniciada.' : 'Intervención iniciada. Conteo de parada en curso.', 'success');
     renderGerencia();
     renderProduccion();
     updateHeaderBadges();
   });
 
   // ==========================================================================
-  // MODAL Y FORMULARIO: CULMINAR INTERVENCIÓN (CÁLCULO DOWNTIME)
+  // MODAL Y FORMULARIO: DETENER / PAUSAR ORDEN DE TRABAJO
+  // ==========================================================================
+  window.cmmsAbrirDetener = (solId) => {
+    const sol = store.getSolicitudById(solId);
+    if (!sol) return;
+
+    document.getElementById('detenerSolId').value = sol.id;
+    const isReq = (sol.tipoSolicitud === 'Requerimiento' || !sol.equipoId);
+    const eq = store.getEquipoById(sol.equipoId);
+    const area = store.getAreaById(sol.areaId);
+
+    const targetDesc = isReq
+      ? `Área: <strong>${area ? area.nombre : 'Área General'} (Sin equipo)</strong>`
+      : `Equipo: <strong>${eq ? eq.codigo : ''} - ${eq ? eq.nombre : ''}</strong>`;
+
+    document.getElementById('detenerInfoSol').innerHTML = `
+      Pausando OT: <strong>SOL-${String(sol.folio).padStart(3, '0')}</strong> | ${targetDesc}<br>
+      Falla / Asunto: <em>"${sol.descripcion}"</em>
+    `;
+
+    document.getElementById('detenerMotivo').value = sol.motivoDetenimiento || 'Compra de materiales';
+    document.getElementById('detenerFechaHora').value = getLocalDateTimeString();
+    document.getElementById('detenerDetalle').value = sol.detalleDetenimiento || '';
+
+    openModal('modalDetenerOT');
+  };
+
+  document.getElementById('btnSetNowDetener')?.addEventListener('click', () => {
+    document.getElementById('detenerFechaHora').value = getLocalDateTimeString();
+  });
+
+  document.getElementById('formDetenerOT')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const solId = document.getElementById('detenerSolId').value;
+    const sol = store.getSolicitudById(solId);
+    if (!sol) return;
+
+    const motivo = document.getElementById('detenerMotivo').value;
+    const fecha = document.getElementById('detenerFechaHora').value;
+    const detalle = document.getElementById('detenerDetalle').value.trim();
+
+    const estadoPrevio = sol.estado !== 'Detenida' ? sol.estado : (sol.estadoPrevio || (sol.fechaInicio ? 'En Intervención' : 'Asignada'));
+
+    await store.updateSolicitud(solId, {
+      estado: 'Detenida',
+      estadoPrevio,
+      motivoDetenimiento: motivo,
+      detalleDetenimiento: detalle,
+      fechaDetenimiento: fecha
+    });
+
+    closeModal('modalDetenerOT');
+    showToast(`Orden SOL-${String(sol.folio).padStart(3, '0')} detenida por: ${motivo}.`, 'warning');
+    renderGerencia();
+    renderProduccion();
+    renderMetricas();
+    updateHeaderBadges();
+  });
+
+  window.cmmsReanudarOT = async (solId) => {
+    const sol = store.getSolicitudById(solId);
+    if (!sol) return;
+
+    const nuevoEstado = sol.estadoPrevio || (sol.fechaInicio ? 'En Intervención' : 'Asignada');
+    if (confirm(`¿Desea reanudar la Orden de Trabajo SOL-${String(sol.folio).padStart(3, '0')}? Pasará a estado "${nuevoEstado}".`)) {
+      await store.updateSolicitud(solId, {
+        estado: nuevoEstado
+      });
+      showToast(`Orden SOL-${String(sol.folio).padStart(3, '0')} reanudada. Estado actual: ${nuevoEstado}.`, 'success');
+      renderGerencia();
+      renderProduccion();
+      renderMetricas();
+      updateHeaderBadges();
+    }
+  };
+
+  // ==========================================================================
+  // MODAL Y FORMULARIO: ANULAR / ELIMINAR SOLICITUD (BAJA REGISTRADA)
+  // ==========================================================================
+  window.cmmsAbrirCancelar = (solId) => {
+    const sol = store.getSolicitudById(solId);
+    if (!sol) return;
+
+    document.getElementById('cancelarSolId').value = sol.id;
+    const isReq = (sol.tipoSolicitud === 'Requerimiento' || !sol.equipoId);
+    const eq = store.getEquipoById(sol.equipoId);
+    const area = store.getAreaById(sol.areaId);
+
+    const targetDesc = isReq
+      ? `Área: <strong>${area ? area.nombre : 'Área General'} (Sin equipo)</strong>`
+      : `Equipo: <strong>${eq ? eq.codigo : ''} - ${eq ? eq.nombre : ''}</strong>`;
+
+    document.getElementById('cancelarInfoSol').innerHTML = `
+      Anulando Solicitud: <strong>SOL-${String(sol.folio).padStart(3, '0')}</strong> | ${targetDesc}<br>
+      Falla / Asunto: <em>"${sol.descripcion}"</em>
+    `;
+
+    document.getElementById('cancelarMotivo').value = sol.motivoCancelacion || 'Solicitud duplicada';
+    document.getElementById('cancelarFechaHora').value = getLocalDateTimeString();
+    document.getElementById('cancelarDetalle').value = sol.detalleCancelacion || '';
+
+    openModal('modalCancelarOT');
+  };
+
+  document.getElementById('btnSetNowCancelar')?.addEventListener('click', () => {
+    document.getElementById('cancelarFechaHora').value = getLocalDateTimeString();
+  });
+
+  document.getElementById('formCancelarOT')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const solId = document.getElementById('cancelarSolId').value;
+    const sol = store.getSolicitudById(solId);
+    if (!sol) return;
+
+    const motivo = document.getElementById('cancelarMotivo').value;
+    const fecha = document.getElementById('cancelarFechaHora').value;
+    const detalle = document.getElementById('cancelarDetalle').value.trim();
+
+    if (!motivo || !detalle) {
+      showToast('Seleccione un motivo e ingrese la justificación de la anulación.', 'error');
+      return;
+    }
+
+    const estadoPrevio = sol.estado !== 'Cancelada' ? sol.estado : (sol.estadoPrevio || 'Pendiente');
+
+    await store.updateSolicitud(solId, {
+      estado: 'Cancelada',
+      estadoPrevio,
+      motivoCancelacion: motivo,
+      detalleCancelacion: detalle,
+      fechaCancelacion: fecha,
+      usuarioCancelacion: store.getRole()
+    });
+
+    closeModal('modalCancelarOT');
+    showToast(`Solicitud SOL-${String(sol.folio).padStart(3, '0')} anulada y archivada: ${motivo}.`, 'warning');
+    renderGerencia();
+    renderProduccion();
+    renderMetricas();
+    updateHeaderBadges();
+  });
+
+  window.cmmsReactivarOT = async (solId) => {
+    const sol = store.getSolicitudById(solId);
+    if (!sol) return;
+
+    const nuevoEstado = sol.estadoPrevio || 'Pendiente';
+    if (confirm(`¿Desea reactivar la Orden de Trabajo SOL-${String(sol.folio).padStart(3, '0')}? Se restablecerá a estado "${nuevoEstado}".`)) {
+      await store.updateSolicitud(solId, {
+        estado: nuevoEstado,
+        motivoCancelacion: null,
+        detalleCancelacion: null,
+        fechaCancelacion: null
+      });
+      showToast(`Orden SOL-${String(sol.folio).padStart(3, '0')} reactivada exitosamente. Estado actual: ${nuevoEstado}.`, 'success');
+      renderGerencia();
+      renderProduccion();
+      renderMetricas();
+      updateHeaderBadges();
+    }
+  };
+
+  // ==========================================================================
+  // MODAL Y FORMULARIO: CULMINAR INTERVENCIÓN (CÁLCULO DOWNTIME / ATENCIÓN)
   // ==========================================================================
   const recalcularDowntimeEnModal = () => {
+    const solId = document.getElementById('culminarSolId')?.value;
+    const sol = solId ? store.getSolicitudById(solId) : null;
+    const isReq = sol ? (sol.tipoSolicitud === 'Requerimiento' || !sol.equipoId) : false;
+
     const inicioStr = document.getElementById('culminarFechaInicio').value;
     const finStr = document.getElementById('culminarFechaFin').value;
     const calc = store.calcularHorasParada(inicioStr, finStr);
     const label = document.getElementById('liveDowntimeCalc');
     if (label) {
-      label.textContent = `${calc.texto} (${calc.decimal} hrs)`;
+      if (isReq) {
+        label.textContent = `${calc.texto} (${calc.decimal} hrs de atención)`;
+      } else {
+        label.textContent = `${calc.texto} (${calc.decimal} hrs de parada)`;
+      }
     }
   };
 
@@ -1274,12 +1664,72 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!sol) return;
 
     document.getElementById('culminarSolId').value = sol.id;
+    const isReq = (sol.tipoSolicitud === 'Requerimiento' || !sol.equipoId);
     const eq = store.getEquipoById(sol.equipoId);
+    const area = store.getAreaById(sol.areaId);
+
+    const titleEl = document.getElementById('modalCulminarTitle');
+    if (titleEl) {
+      titleEl.innerHTML = isReq
+        ? '<span>✅</span> Culminar Requerimiento de Área'
+        : '<span>✅</span> Culminar Intervención y Cierre de Parada';
+    }
+
+    const lblInicio = document.getElementById('lblCulminarFechaInicio');
+    if (lblInicio) {
+      lblInicio.innerHTML = isReq
+        ? 'Fecha y Hora de Inicio de Atención <span class="req">*</span>'
+        : 'Fecha y Hora de Inicio de Parada / Reparación <span class="req">*</span>';
+    }
+
+    const btnSetSol = document.getElementById('btnSetFechaSolicitud');
+    if (btnSetSol) {
+      btnSetSol.style.display = (isReq && sol.fechaSolicitud) ? 'inline-block' : 'none';
+      btnSetSol.dataset.fecha = sol.fechaSolicitud || '';
+    }
+
+    const lblDowntime = document.getElementById('labelCulminarDowntime');
+    if (lblDowntime) {
+      lblDowntime.textContent = isReq
+        ? 'TIEMPO DE ATENCIÓN DEL REQUERIMIENTO:'
+        : 'TIEMPO TOTAL DE PARADA DEL EQUIPO (DOWNTIME):';
+    }
+
+    const lblDiag = document.getElementById('lblCulminarDiagnostico');
+    if (lblDiag) {
+      lblDiag.innerHTML = isReq
+        ? 'Diagnóstico / Alcance del Servicio <span class="req">*</span>'
+        : 'Diagnóstico Técnico de la Causa Raíz <span class="req">*</span>';
+    }
+
+    const lblSol = document.getElementById('lblCulminarSolucion');
+    if (lblSol) {
+      lblSol.innerHTML = isReq
+        ? 'Trabajos y Adecuaciones Realizadas <span class="req">*</span>'
+        : 'Acción Correctiva / Solución Ejecutada <span class="req">*</span>';
+    }
+
+    const btnSubmit = document.getElementById('btnSubmitCulminar');
+    if (btnSubmit) {
+      btnSubmit.textContent = isReq
+        ? 'Guardar y Culminar Requerimiento'
+        : 'Guardar y Cerrar Parada';
+    }
+
+    const tipoBadge = isReq
+      ? '<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; font-weight:600;">📋 Requerimiento</span>'
+      : '<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:600;">🛠️ Avería</span>';
+
+    const targetDesc = isReq
+      ? `Área: <strong>${area ? area.nombre : 'Área General'} (Sin equipo)</strong>`
+      : `Equipo: <strong>${eq ? eq.codigo : ''} - ${eq ? eq.nombre : ''}</strong>`;
+
     document.getElementById('culminarInfoSol').innerHTML = `
-      Cerrando Orden <strong>SOL-${String(sol.folio).padStart(3, '0')}</strong> en <strong>${eq ? eq.codigo : ''} - ${eq ? eq.nombre : ''}</strong>
+      Cerrando Orden <strong>SOL-${String(sol.folio).padStart(3, '0')}</strong> ${tipoBadge} | ${targetDesc}
     `;
 
-    document.getElementById('culminarFechaInicio').value = sol.fechaInicio || getLocalDateTimeString();
+    const defaultInicio = sol.fechaInicio || (isReq ? (sol.fechaAsignacion || sol.fechaSolicitud) : sol.fechaSolicitud) || getLocalDateTimeString();
+    document.getElementById('culminarFechaInicio').value = defaultInicio;
     document.getElementById('culminarFechaFin').value = getLocalDateTimeString();
     document.getElementById('culminarDiagnostico').value = sol.diagnostico || '';
     document.getElementById('culminarSolucion').value = sol.solucion || '';
@@ -1306,6 +1756,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('culminarFechaFin').value = getLocalDateTimeString();
     recalcularDowntimeEnModal();
   });
+  document.getElementById('btnSetFechaSolicitud')?.addEventListener('click', () => {
+    const btn = document.getElementById('btnSetFechaSolicitud');
+    if (btn && btn.dataset.fecha) {
+      document.getElementById('culminarFechaInicio').value = btn.dataset.fecha;
+      recalcularDowntimeEnModal();
+    }
+  });
 
   document.getElementById('formCulminar')?.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -1313,6 +1770,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const sol = store.getSolicitudById(solId);
     if (!sol) return;
 
+    const isReq = (sol.tipoSolicitud === 'Requerimiento' || !sol.equipoId);
     const fechaInicio = document.getElementById('culminarFechaInicio').value;
     const fechaFin = document.getElementById('culminarFechaFin').value;
     const diagnostico = document.getElementById('culminarDiagnostico').value.trim();
@@ -1326,14 +1784,27 @@ document.addEventListener('DOMContentLoaded', async () => {
       estado: 'Culminada',
       fechaInicio,
       fechaFin,
-      horasParadaDecimal: calc.decimal,
-      horasParadaTexto: calc.texto,
-      minutosParadaTotal: calc.minutos,
       diagnostico,
       solucion,
       repuestos,
       observaciones
     };
+
+    if (isReq) {
+      patch.horasParadaDecimal = 0;
+      patch.horasParadaTexto = 'No aplica (Operativo)';
+      patch.minutosParadaTotal = 0;
+      patch.horasAtencionDecimal = calc.decimal;
+      patch.horasAtencionTexto = calc.texto;
+      patch.minutosAtencionTotal = calc.minutos;
+    } else {
+      patch.horasParadaDecimal = calc.decimal;
+      patch.horasParadaTexto = calc.texto;
+      patch.minutosParadaTotal = calc.minutos;
+      patch.horasAtencionDecimal = calc.decimal;
+      patch.horasAtencionTexto = calc.texto;
+      patch.minutosAtencionTotal = calc.minutos;
+    }
 
     if (sol.tipoEjecutor === 'Contratista' && sol.contratista) {
       const costoFinal = Number(document.getElementById('culminarContratistaCosto').value) || sol.contratista.costo;
@@ -1342,7 +1813,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     await store.updateSolicitud(solId, patch);
     closeModal('modalCulminar');
-    showToast(`Parada cerrada exitosamente: ${calc.texto} (${calc.decimal} hrs).`, 'success');
+    const toastMsg = isReq
+      ? `Requerimiento culminado: ${calc.texto} (${calc.decimal} hrs atención).`
+      : `Parada cerrada: ${calc.texto} (${calc.decimal} hrs parada de equipo).`;
+    showToast(toastMsg, 'success');
 
     renderGerencia();
     renderProduccion();
@@ -1362,6 +1836,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     const tec = sol.tecnicoId ? store.getEmpleadoById(sol.tecnicoId) : null;
     const cfg = store.getConfig();
     const moneda = cfg.moneda || '$';
+    const isReq = (sol.tipoSolicitud === 'Requerimiento' || !sol.equipoId);
+
+    const tipoBadge = isReq
+      ? '<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; font-weight:600;">📋 Requerimiento de Área</span>'
+      : '<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:600;">🛠️ Avería de Equipo</span>';
+
+    const equipoDetalle = isReq
+      ? '<span class="badge badge-outline">🏢 Área General (Sin equipo asignado)</span>'
+      : `${eq ? eq.codigo : 'N/A'} - ${eq ? eq.nombre : ''}`;
+    const ubicacionDetalle = isReq
+      ? (area ? area.nombre : 'Área General')
+      : (eq ? eq.ubicacion : 'N/A');
 
     let ejecutorTexto = 'Sin asignar';
     if (sol.tipoEjecutor === 'Contratista' && sol.contratista) {
@@ -1369,6 +1855,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else if (tec) {
       ejecutorTexto = `👷 <strong>${tec.nombre}</strong> (${tec.especialidad})`;
     }
+
+    const tiempoSectionTitle = isReq ? 'Atención del Requerimiento' : 'Intervención Técnica y Tiempos de Parada';
+    const tiempoSectionMetric = isReq
+      ? `<div><strong>Tiempo de Atención:</strong> <strong style="color:#0284c7;">${sol.horasAtencionTexto || sol.horasParadaTexto || '0h 00m'}</strong> (${sol.horasAtencionDecimal || 0} hrs)</div>`
+      : `<div><strong>Tiempo Total Parada:</strong> <strong class="text-danger">${sol.horasParadaTexto || '0h 00m'}</strong> (${sol.horasParadaDecimal || 0} hrs)</div>`;
+    const inicioLabel = isReq ? 'Inicio Atención:' : 'Inicio Parada:';
+    const finLabel = isReq ? 'Fin Atención:' : 'Fin Parada:';
 
     const html = `
       <div style="padding: 1rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--bg-surface);">
@@ -1384,48 +1877,69 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>
 
         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; font-size: 0.9rem; margin-bottom: 1.25rem;">
-          <div><strong>Fecha de Reporte:</strong> ${sol.fechaSolicitud.replace('T', ' ')}</div>
+          <div><strong>Tipo de Solicitud:</strong> ${tipoBadge}</div>
           <div><strong>Turno:</strong> ${sol.turno}</div>
+          <div><strong>Fecha de Reporte:</strong> ${sol.fechaSolicitud.replace('T', ' ')}</div>
           <div><strong>Solicitante:</strong> ${sol.solicitante}</div>
           <div><strong>Área de Planta:</strong> ${area ? area.nombre : 'N/A'} (${area ? area.codigo : ''})</div>
-          <div><strong>Equipo / Activo:</strong> ${eq ? eq.codigo : ''} - ${eq ? eq.nombre : ''}</div>
-          <div><strong>Ubicación:</strong> ${eq ? eq.ubicacion : 'N/A'}</div>
-          <div><strong>Tipo de Falla:</strong> ${sol.tipoFalla}</div>
+          <div><strong>Equipo / Asunto:</strong> ${equipoDetalle}</div>
+          <div><strong>Ubicación:</strong> ${ubicacionDetalle}</div>
+          <div><strong>Tipo / Falla:</strong> ${sol.tipoFalla}</div>
           <div><strong>Criticidad:</strong> ${sol.criticidad}</div>
         </div>
 
         <div style="margin-bottom: 1.25rem; padding: 0.75rem; background: var(--bg-subtle); border-radius: var(--radius-sm);">
-          <strong>Síntoma / Descripción Inicial:</strong>
+          <strong>${isReq ? 'Descripción del Requerimiento:' : 'Síntoma / Descripción Inicial:'}</strong>
           <p style="margin-top: 0.25rem;">${sol.descripcion}</p>
         </div>
 
+        ${sol.motivoDetenimiento ? `
+          <div style="margin-bottom: 1.25rem; padding: 0.85rem; background: #fff7ed; border-left: 4px solid #ea580c; border-radius: var(--radius-sm);">
+            <strong style="color: #c2410c; font-size: 0.95rem;">⏸️ Registro de Detenimiento:</strong> <strong style="color: #9a3412;">${sol.motivoDetenimiento}</strong><br>
+            <div style="margin-top: 0.35rem; font-size: 0.88rem; color: var(--text-main);">
+              <span><strong>Fecha y Hora de Detención:</strong> ${sol.fechaDetenimiento ? sol.fechaDetenimiento.replace('T', ' ') : '-'}</span><br>
+              <span><strong>Justificación / Notas:</strong> ${sol.detalleDetenimiento || 'Sin observaciones registradas'}</span>
+            </div>
+          </div>
+        ` : ''}
+
+        ${sol.estado === 'Cancelada' ? `
+          <div style="margin-bottom: 1.25rem; padding: 0.85rem; background: #fef2f2; border-left: 4px solid #dc2626; border-radius: var(--radius-sm);">
+            <strong style="color: #dc2626; font-size: 0.95rem;">🗑️ Solicitud Anulada / Desestimada:</strong> <strong style="color: #991b1b;">${sol.motivoCancelacion || 'Cancelada'}</strong><br>
+            <div style="margin-top: 0.35rem; font-size: 0.88rem; color: var(--text-main);">
+              <span><strong>Fecha y Hora de la Baja:</strong> ${sol.fechaCancelacion ? sol.fechaCancelacion.replace('T', ' ') : '-'}</span><br>
+              <span><strong>Justificación Técnica del Descarte:</strong> ${sol.detalleCancelacion || 'Sin observaciones registradas'}</span>
+            </div>
+          </div>
+        ` : ''}
+
         <div style="border-top: 1px solid var(--border-color); padding-top: 1rem; margin-bottom: 1rem;">
-          <h4 style="margin-bottom: 0.5rem; color: var(--primary);">Intervención Técnica y Tiempos de Parada</h4>
+          <h4 style="margin-bottom: 0.5rem; color: var(--primary);">${tiempoSectionTitle}</h4>
           <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; font-size: 0.9rem;">
             <div><strong>Ejecutado Por:</strong> ${ejecutorTexto}</div>
-            <div><strong>Tiempo Total Parada:</strong> <strong class="text-danger">${sol.horasParadaTexto || '0h 00m'}</strong> (${sol.horasParadaDecimal || 0} hrs)</div>
-            <div><strong>Inicio Parada:</strong> ${sol.fechaInicio ? sol.fechaInicio.replace('T', ' ') : '-'}</div>
-            <div><strong>Fin Parada:</strong> ${sol.fechaFin ? sol.fechaFin.replace('T', ' ') : '-'}</div>
+            ${tiempoSectionMetric}
+            <div><strong>${inicioLabel}</strong> ${sol.fechaInicio ? sol.fechaInicio.replace('T', ' ') : '-'}</div>
+            <div><strong>${finLabel}</strong> ${sol.fechaFin ? sol.fechaFin.replace('T', ' ') : '-'}</div>
           </div>
         </div>
 
         ${sol.diagnostico ? `
           <div style="margin-bottom: 0.75rem;">
-            <strong>Diagnóstico de Causa Raíz:</strong>
+            <strong>${isReq ? 'Diagnóstico / Alcance del Servicio:' : 'Diagnóstico de Causa Raíz:'}</strong>
             <p>${sol.diagnostico}</p>
           </div>
         ` : ''}
 
         ${sol.solucion ? `
           <div style="margin-bottom: 0.75rem;">
-            <strong>Acción Correctiva Ejecutada:</strong>
+            <strong>${isReq ? 'Trabajo Realizado:' : 'Acción Correctiva Ejecutada:'}</strong>
             <p>${sol.solucion}</p>
           </div>
         ` : ''}
 
         ${sol.repuestos ? `
           <div style="margin-bottom: 0.75rem;">
-            <strong>Repuestos y Materiales:</strong>
+            <strong>${isReq ? 'Materiales / Insumos Utilizados:' : 'Repuestos y Materiales:'}</strong>
             <p>${sol.repuestos}</p>
           </div>
         ` : ''}
@@ -1438,7 +1952,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         ` : ''}
 
         <div style="display: flex; justify-content: space-between; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px dashed var(--border-dark); font-size: 0.85rem; text-align: center;">
-          <div style="width: 200px; border-top: 1px solid #000; padding-top: 0.25rem;">Firma Solicitante (Producción)</div>
+          <div style="width: 200px; border-top: 1px solid #000; padding-top: 0.25rem;">Firma Solicitante</div>
           <div style="width: 200px; border-top: 1px solid #000; padding-top: 0.25rem;">Firma Técnico / Supervisor</div>
         </div>
       </div>
