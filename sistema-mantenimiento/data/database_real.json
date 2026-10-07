@@ -2,67 +2,117 @@
   "version": "2.0.0",
   "environment": "real",
   "config": {
-    "nombreEmpresa": "Grupo Comercialilzadora Ferco",
-    "moneda": "$",
-    "horasTurnoDia": 24,
-    "pinMantenimiento": "1234",
-    "pinAdmin": "9999"
+    "nombreEmpresa": null,
+    "moneda": null,
+    "horasTurnoDia": 8,
+    "diasLaboralesSemana": 6,
+    "pinMantenimiento": null,
+    "pinAdmin": null
   },
   "areas": [
     {
-      "id": "AREA-1788812135558",
+      "id": "AREA-1790011404622",
       "codigo": "RM",
-      "nombre": "Reposteria Mezcla",
-      "descripcion": "CDPI",
+      "nombre": "REPOSTERIA MEZCLA",
+      "descripcion": "CDP I",
       "activa": true
     },
     {
-      "id": "AREA-1788812162707",
+      "id": "AREA-1790011423467",
       "codigo": "DE",
-      "nombre": "Decoracion",
-      "descripcion": "CDPI",
+      "nombre": "DECORACION",
+      "descripcion": "CDP I",
       "activa": true
     },
     {
-      "id": "AREA-1788812180485",
-      "codigo": "MC",
-      "nombre": "Mezcla Cepillados",
-      "descripcion": "CDPI",
-      "activa": true
-    },
-    {
-      "id": "AREA-1788812196754",
+      "id": "AREA-1790011451764",
       "codigo": "MQ",
       "nombre": "MAQUINAS",
-      "descripcion": "CDPI",
+      "descripcion": "MQ",
       "activa": true
     },
     {
-      "id": "AREA-1788812218615",
+      "id": "AREA-1790011464090",
+      "codigo": "MC",
+      "nombre": "MEZCLA CEPILLADOS",
+      "descripcion": "CDP I",
+      "activa": true
+    },
+    {
+      "id": "AREA-1790011486542",
       "codigo": "AL",
       "nombre": "ALMACEN",
-      "descripcion": "CDPI",
+      "descripcion": "CDP I",
       "activa": true
     },
     {
-      "id": "AREA-1788812230205",
-      "codigo": "GA",
-      "nombre": "GALLETERIA",
-      "descripcion": "CDPI",
+      "id": "AREA-1790011533328",
+      "codigo": "FN",
+      "nombre": "FINANZAS",
+      "descripcion": "CDP I",
       "activa": true
     },
     {
-      "id": "AREA-1788812241010",
+      "id": "AREA-1790011551248",
+      "codigo": "BI",
+      "nombre": "INTELIGENCIA DE NEGOCIOS",
+      "descripcion": "CDP II",
+      "activa": true
+    },
+    {
+      "id": "AREA-1790011576030",
+      "codigo": "MER",
+      "nombre": "MERCADEO",
+      "descripcion": "CDP II",
+      "activa": true
+    },
+    {
+      "id": "AREA-1790011594057",
+      "codigo": "CT",
+      "nombre": "CONTABILIDAD",
+      "descripcion": "CDP II",
+      "activa": true
+    },
+    {
+      "id": "AREA-1790011641130",
+      "codigo": "RRHH",
+      "nombre": "RECURSOS HUMANOS",
+      "descripcion": "CDP I",
+      "activa": true
+    },
+    {
+      "id": "AREA-1790011681659",
+      "codigo": "GO",
+      "nombre": "GERENCIA DE OPERACIONES",
+      "descripcion": "CDP I",
+      "activa": true
+    },
+    {
+      "id": "AREA-1790011700564",
+      "codigo": "GG",
+      "nombre": "GERENCIA GENERAL",
+      "descripcion": "CDP I",
+      "activa": true
+    },
+    {
+      "id": "AREA-1790012001943",
+      "codigo": "CD",
+      "nombre": "CALIDAD",
+      "descripcion": "CDP I",
+      "activa": true
+    },
+    {
+      "id": "AREA-1790012036661",
+      "codigo": "PR",
+      "nombre": "PRODUCCION",
+      "descripcion": "CDP I",
+      "activa": true
+    },
+    {
+      "id": "AREA-1790012049789",
       "codigo": "PP",
       "nombre": "PRE PRODUCCION",
-      "descripcion": "CDPI",
-      "activa": true
-    },
-    {
-      "id": "AREA-1788812322708",
-      "codigo": "OA",
-      "nombre": "OFICINAS ADMINISTRATIVOS",
-      "descripcion": "CDPI",
+      "descripcion": "CDP I",
       "activa": true
     }
   ],
@@ -70,8 +120,40 @@
   "empleados": [
     {
       "id": "EMP-1",
-      "nombre": "Administrador Principal",
+      "nombre": "ROBERT MORENO",
       "especialidad": "Jefatura de Mantenimiento",
+      "rol": "Supervisor",
+      "telefono": "04146241939",
+      "activo": true
+    },
+    {
+      "id": "EMP-1790012131827",
+      "nombre": "GERARDO URDANETA",
+      "especialidad": "Plomeria y servicio generales",
+      "rol": "Técnico",
+      "telefono": "04146241939",
+      "activo": true
+    },
+    {
+      "id": "EMP-1790012221455",
+      "nombre": "WILLIAM",
+      "especialidad": "JEFE DE PRODUCCION",
+      "rol": "Solicitante",
+      "telefono": "",
+      "activo": true
+    },
+    {
+      "id": "EMP-1790012629765",
+      "nombre": "ALMA MATA",
+      "especialidad": "VICEPRESIDENCIA DE OPERACIONES",
+      "rol": "Supervisor",
+      "telefono": "",
+      "activo": true
+    },
+    {
+      "id": "EMP-1790012659780",
+      "nombre": "HUMBERTO ANDRES FEREIRA",
+      "especialidad": "PRESIDENCIA DE OPERACIONES",
       "rol": "Supervisor",
       "telefono": "",
       "activo": true

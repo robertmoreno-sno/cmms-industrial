@@ -10,7 +10,8 @@ const SEED_FALLBACK = {
   config: {
     nombreEmpresa: 'Planta Industrial Central',
     moneda: '$',
-    horasTurnoDia: 24,
+    horasTurnoDia: 8,
+    diasLaboralesSemana: 6,
     pinMantenimiento: '1234',
     pinAdmin: '9999'
   },
@@ -270,12 +271,14 @@ class CMMSStore {
 
   // CONFIG
   getConfig() {
-    return this.data.config || {
-      nombreEmpresa: 'Planta Industrial Central',
-      moneda: '$',
-      horasTurnoDia: 24,
-      pinMantenimiento: '1234',
-      pinAdmin: '9999'
+    const cfg = this.data.config || {};
+    return {
+      nombreEmpresa: cfg.nombreEmpresa || 'Planta Industrial Central',
+      moneda: cfg.moneda || '$',
+      horasTurnoDia: Number(cfg.horasTurnoDia) > 0 && Number(cfg.horasTurnoDia) !== 24 ? Number(cfg.horasTurnoDia) : 8,
+      diasLaboralesSemana: Number(cfg.diasLaboralesSemana) > 0 ? Number(cfg.diasLaboralesSemana) : 6,
+      pinMantenimiento: cfg.pinMantenimiento || '1234',
+      pinAdmin: cfg.pinAdmin || '9999'
     };
   }
 
@@ -482,6 +485,11 @@ class CMMSStore {
 
   async createPreventivo(nuevo) {
     const id = `PREV-${String(Date.now()).slice(-5)}`;
+    const mapDias = { 'Semanal': 7, 'Quincenal': 15, 'Mensual': 30, 'Bimestral': 60, 'Trimestral': 90, 'Semestral': 180, 'Anual': 365 };
+    const diasFrecuenciaCalculado = Number(nuevo.diasFrecuencia) > 0 
+      ? Number(nuevo.diasFrecuencia) 
+      : (mapDias[nuevo.frecuencia] || 30);
+
     const prevObj = {
       id,
       codigo: nuevo.codigo || `MP-${id}`,
@@ -489,7 +497,7 @@ class CMMSStore {
       equipoId: nuevo.equipoId,
       areaId: nuevo.areaId,
       frecuencia: nuevo.frecuencia || 'Mensual',
-      diasFrecuencia: Number(nuevo.diasFrecuencia) || 30,
+      diasFrecuencia: diasFrecuenciaCalculado,
       ultimaEjecucion: nuevo.ultimaEjecucion || new Date().toISOString().slice(0, 10),
       proximaFecha: nuevo.proximaFecha,
       estado: this.evaluarEstadoPreventivo(nuevo.proximaFecha),

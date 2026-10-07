@@ -61,6 +61,12 @@ class AnalyticsEngine {
     let cantidadContratistas = 0;
 
     solicitudes.forEach(s => {
+      // Las solicitudes canceladas/desestimadas se archivan y NO cuentan como órdenes operativas pendientes
+      if (s.estado === 'Cancelada') {
+        canceladasCount++;
+        return;
+      }
+
       const isReq = (s.tipoSolicitud === 'Requerimiento' || !s.equipoId);
       if (isReq) requerimientosTotalCount++;
       else averiasTotalCount++;
@@ -82,8 +88,6 @@ class AnalyticsEngine {
         asignadasCount++;
       } else if (s.estado === 'Detenida') {
         detenidasCount++;
-      } else if (s.estado === 'Cancelada') {
-        canceladasCount++;
       }
 
       if (s.tipoEjecutor === 'Contratista' && s.contratista && s.contratista.costo) {
@@ -109,15 +113,30 @@ class AnalyticsEngine {
       ? Number((totalHorasDecimal / averiasCulminadasCount).toFixed(2))
       : 0;
 
-    // MTBF (Mean Time Between Failures): Tiempo operativo / averías de equipo
-    // Estimación: Período activo (30 días * 24h = 720h base por equipo activo)
+    // Helper para estimar los días y horas laborales del período seleccionado (TPM / ISO 14224)
+    const config = this.store.getConfig();
+    const horasPorDia = Number(config.horasTurnoDia) || 8;
+    const diasLaboralesSemana = Number(config.diasLaboralesSemana) || 6;
+    const diasPeriodo = this.getWorkingDays(dateRange, customStart, customEnd, diasLaboralesSemana);
+    const horasBasePorEquipo = diasPeriodo * horasPorDia;
+
+    // Confiabilidad y Disponibilidad Mecánica de Planta (TPM / ISO 14224)
     const equipos = this.store.getEquipos();
     const cantEquipos = Math.max(equipos.length, 1);
-    const horasPeriodoTotal = cantEquipos * 720; // 30 días base
+    const horasPeriodoTotal = cantEquipos * horasBasePorEquipo;
     const tiempoOperativoNeto = Math.max(horasPeriodoTotal - totalHorasDecimal, 0);
+
+    // MTBF (Mean Time Between Failures): Tiempo operativo / averías de equipo
     const mtbfDecimal = averiasCulminadasCount > 0
       ? Number((tiempoOperativoNeto / averiasCulminadasCount).toFixed(1))
       : horasPeriodoTotal;
+
+    // DISPONIBILIDAD MECÁNICA (%): (Tiempo Operativo / Tiempo Planificado) * 100
+    // Mide el porcentaje de tiempo que la maquinaria estuvo mecánicamente operativa sin paradas
+    const disponibilidadMecanicaDecimal = horasPeriodoTotal > 0
+      ? Number(Math.min(100, Math.max(0, (tiempoOperativoNeto / horasPeriodoTotal) * 100)).toFixed(1))
+      : 100.0;
+    const disponibilidadMecanicaTexto = `${disponibilidadMecanicaDecimal.toFixed(1)}%`;
 
     // Métricas de Preventivo
     const preventivos = this.store.getPreventivos();
@@ -127,16 +146,17 @@ class AnalyticsEngine {
     const prevProximos = preventivos.filter(p => p.estado === 'Próximo').length;
     const tasaCumplimientoPrev = totalPrev > 0 ? Math.round((prevAlDia / totalPrev) * 100) : 100;
 
-    // Tasa de Resolución
+    // Tasa de Resolución: Calculada sobre el trabajo operativo efectivo (las desestimadas no cuentan como pendientes)
     const totalAbiertas = pendientesCount + asignadasCount + enIntervencionCount + detenidasCount;
-    const tasaResolucion = totalSolicitudes > 0
-      ? Math.round((culminadasCount / totalSolicitudes) * 100)
-      : 0;
-
-    const config = this.store.getConfig();
+    const totalEfectivas = culminadasCount + totalAbiertas;
+    const tasaResolucion = totalEfectivas > 0
+      ? Math.round((culminadasCount / totalEfectivas) * 100)
+      : (totalSolicitudes === 0 ? 0 : 100);
 
     return {
       totalSolicitudes,
+      totalEfectivas,
+      totalValidas: totalEfectivas,
       averiasTotalCount,
       requerimientosTotalCount,
       culminadasCount,
@@ -158,6 +178,16 @@ class AnalyticsEngine {
       totalHorasAtencionTexto: totalAtencionTexto,
       mttrDecimal,
       mtbfDecimal,
+      disponibilidadMecanica: disponibilidadMecanicaDecimal,
+      disponibilidadMecanicaDecimal,
+      disponibilidadMecanicaTexto,
+      tiempoOperativoNeto: Number(tiempoOperativoNeto.toFixed(1)),
+      horasPeriodoTotal,
+      horasBasePorEquipo,
+      diasPeriodo,
+      horasPorDia,
+      diasLaboralesSemana,
+      cantEquipos: equipos.length,
       costoTotalContratistas: Number(costoTotalContratistas.toFixed(2)),
       cantidadContratistas,
       tasaResolucion,
@@ -172,10 +202,72 @@ class AnalyticsEngine {
     };
   }
 
-  // 1. Horas y Conteo de Paradas por Equipo (Solo Averías con Equipo)
+  // Helper para estimar los días laborales según la jornada configurada (por defecto: 6 días/semana)
+  getWorkingDays(dateRange = 'all', customStart = null, customEnd = null, diasLaboralesSemana = 6) {
+    if (dateRange === 'today') {
+      return 1; // 1 turno/jornada diaria de trabajo
+    }
+    if (dateRange === 'week') {
+      // 1 semana planificada de producción: días laborales semanales (por defecto 6)
+      return Math.min(Math.max(diasLaboralesSemana, 1), 7);
+    }
+    if (dateRange === 'month') {
+      // Días laborales transcurridos en el mes actual hasta hoy
+      const now = new Date();
+      let workingDays = 0;
+      for (let d = 1; d <= now.getDate(); d++) {
+        const date = new Date(now.getFullYear(), now.getMonth(), d);
+        const day = date.getDay(); // 0: Domingo, 6: Sábado
+        if (diasLaboralesSemana === 6) {
+          if (day !== 0) workingDays++; // Lunes a Sábado (descansa Domingo)
+        } else if (diasLaboralesSemana === 5) {
+          if (day !== 0 && day !== 6) workingDays++; // Lunes a Viernes
+        } else {
+          workingDays += (diasLaboralesSemana / 7);
+        }
+      }
+      return Math.max(1, Math.round(workingDays));
+    }
+    if (dateRange === 'custom' && customStart && customEnd) {
+      const start = new Date(customStart);
+      const end = new Date(customEnd);
+      let workingDays = 0;
+      const cur = new Date(start);
+      while (cur <= end) {
+        const day = cur.getDay();
+        if (diasLaboralesSemana === 6) {
+          if (day !== 0) workingDays++;
+        } else if (diasLaboralesSemana === 5) {
+          if (day !== 0 && day !== 6) workingDays++;
+        } else {
+          workingDays += (diasLaboralesSemana / 7);
+        }
+        cur.setDate(cur.getDate() + 1);
+      }
+      return Math.max(1, Math.round(workingDays));
+    }
+    // 'all' o estándar mensual industrial (30 días base):
+    // 30 días calendario con 6 días laborales a la semana: Math.round(30 * (6 / 7)) = 26 días laborales
+    return Math.max(1, Math.round(30 * (diasLaboralesSemana / 7)));
+  }
+
+  // Helper retrocompatible para estimar los días del período seleccionado
+  getPeriodDays(dateRange = 'all', customStart = null, customEnd = null) {
+    const config = this.store.getConfig();
+    const diasLaboralesSemana = Number(config.diasLaboralesSemana) || 6;
+    return this.getWorkingDays(dateRange, customStart, customEnd, diasLaboralesSemana);
+  }
+
+  // 1. Horas y Conteo de Paradas por Equipo (Solo Averías con Equipo operativas)
   getDowntimeByEquipment(dateRange = 'all') {
-    const solicitudes = this.getFilteredRequests(dateRange).filter(s => s.equipoId && s.tipoSolicitud !== 'Requerimiento');
+    const solicitudes = this.getFilteredRequests(dateRange).filter(s => s.equipoId && s.tipoSolicitud !== 'Requerimiento' && s.estado !== 'Cancelada');
     const map = {};
+
+    const config = this.store.getConfig();
+    const horasPorDia = Number(config.horasTurnoDia) || 8;
+    const diasLaboralesSemana = Number(config.diasLaboralesSemana) || 6;
+    const diasPeriodo = this.getWorkingDays(dateRange, null, null, diasLaboralesSemana);
+    const horasBaseEquipo = diasPeriodo * horasPorDia;
 
     solicitudes.forEach(s => {
       if (!map[s.equipoId]) {
@@ -189,7 +281,8 @@ class AnalyticsEngine {
           paradasCount: 0,
           minutosParada: 0,
           horasDecimal: 0,
-          costoTerceros: 0
+          costoTerceros: 0,
+          horasBaseEquipo
         };
       }
 
@@ -203,11 +296,21 @@ class AnalyticsEngine {
     });
 
     return Object.values(map)
-      .map(item => ({
-        ...item,
-        horasDecimal: Number((item.minutosParada / 60).toFixed(2)),
-        horasTexto: `${Math.floor(item.minutosParada / 60)}h ${(item.minutosParada % 60).toString().padStart(2, '0')}m`
-      }))
+      .map(item => {
+        const horasDecimal = Number((item.minutosParada / 60).toFixed(2));
+        const horasOperativas = Math.max(0, horasBaseEquipo - horasDecimal);
+        const disponibilidadMecanica = horasBaseEquipo > 0
+          ? Number(Math.min(100, Math.max(0, (horasOperativas / horasBaseEquipo) * 100)).toFixed(1))
+          : 100.0;
+
+        return {
+          ...item,
+          horasDecimal,
+          horasTexto: `${Math.floor(item.minutosParada / 60)}h ${(item.minutosParada % 60).toString().padStart(2, '0')}m`,
+          disponibilidadMecanica,
+          horasOperativas: Number(horasOperativas.toFixed(1))
+        };
+      })
       .sort((a, b) => b.horasDecimal - a.horasDecimal);
   }
 
@@ -217,6 +320,8 @@ class AnalyticsEngine {
     const map = {};
 
     solicitudes.forEach(s => {
+      if (s.estado === 'Cancelada') return; // Desestimadas no cuentan como paradas ni requerimientos de área
+
       if (!map[s.areaId]) {
         const area = this.store.getAreaById(s.areaId);
         map[s.areaId] = {
@@ -285,6 +390,7 @@ class AnalyticsEngine {
 
     solicitudes.forEach(s => {
       if (s.tipoEjecutor === 'Interno' && s.tecnicoId && map[s.tecnicoId]) {
+        if (s.estado === 'Cancelada') return; // Desestimadas no cuentan como asignadas abiertas o no culminadas
         map[s.tecnicoId].asignadas++;
         if (s.estado === 'Culminada') {
           map[s.tecnicoId].culminadas++;
@@ -393,7 +499,7 @@ class AnalyticsEngine {
     container.innerHTML = html;
   }
 
-  // Gráfico Comparativo: Solicitudes Ejecutadas vs Pendientes
+  // Gráfico Comparativo: Solicitudes Ejecutadas vs Pendientes (Excluye Desestimadas de Pendientes)
   renderStatusDonutChart(containerId, kpis) {
     const container = document.getElementById(containerId);
     if (!container) return;
@@ -403,10 +509,15 @@ class AnalyticsEngine {
     const asignadas = kpis.asignadasCount;
     const pendientes = kpis.pendientesCount;
     const detenidas = kpis.detenidasCount || 0;
-    const total = kpis.totalSolicitudes;
+    const canceladas = kpis.canceladasCount || 0;
+    const total = kpis.totalEfectivas !== undefined ? kpis.totalEfectivas : (culminadas + enIntervencion + asignadas + pendientes + detenidas);
 
     if (total === 0) {
-      container.innerHTML = `<div class="chart-empty">Sin solicitudes registradas.</div>`;
+      if (canceladas > 0) {
+        container.innerHTML = `<div class="chart-empty">📁 ${canceladas} orden(es) desestimada(s) archivada(s). Sin órdenes operativas activas.</div>`;
+      } else {
+        container.innerHTML = `<div class="chart-empty">Sin solicitudes registradas.</div>`;
+      }
       return;
     }
 
@@ -432,6 +543,9 @@ class AnalyticsEngine {
       legendHtml += `<div class="legend-item"><span class="legend-dot" style="background: #ea580c;"></span><strong>Detenidas:</strong> ${detenidas} (${pctDet}%)</div>`;
     }
     legendHtml += `<div class="legend-item"><span class="legend-dot dot-danger"></span><strong>Pendientes:</strong> ${pendientes} (${pctPend}%)</div>`;
+    if (canceladas > 0) {
+      legendHtml += `<div class="legend-item"><span class="legend-dot" style="background: #9ca3af;"></span><strong>Desestimadas:</strong> ${canceladas} <small class="text-muted">(excluidas)</small></div>`;
+    }
 
     container.innerHTML = `
       <div class="status-comparison-card">
@@ -537,9 +651,19 @@ class AnalyticsEngine {
     const solicitudes = this.getFilteredRequests(dateRange);
     const cfg = this.store.getConfig();
     const moneda = cfg.moneda || '$';
+    const kpis = this.getKPIs(dateRange);
+
+    const metadataRows = [
+      `"CMMS MANTENIMIENTO INDUSTRIAL - REPORTE DE GESTIÓN Y CONFIABILIDAD"`,
+      `"Período Analizado: ${dateRange} | Fecha de Generación: ${new Date().toLocaleString('es-ES')}"`,
+      `"Disponibilidad Mecánica: ${kpis.disponibilidadMecanicaTexto} | Paradas: ${kpis.totalHorasTexto} (${kpis.totalHorasDecimal} hrs) | MTBF: ${kpis.mtbfDecimal} hrs | MTTR: ${kpis.mttrDecimal} hrs"`,
+      `"Atención Requerimientos: ${kpis.totalAtencionTexto} | Órdenes Cerradas: ${kpis.culminadasCount} de ${kpis.totalSolicitudes} (${kpis.tasaResolucion}%) | Gasto Terceros: ${moneda} ${kpis.costoTotalContratistas.toFixed(2)}"`,
+      `""`
+    ];
 
     const headers = [
       'Folio',
+      'Tipo Solicitud',
       'Fecha Solicitud',
       'Solicitante',
       'Turno',
@@ -554,10 +678,10 @@ class AnalyticsEngine {
       'Contratista Externo',
       'Orden de Compra',
       `Costo Tercero (${moneda})`,
-      'Fecha Inicio Parada',
-      'Fecha Fin Parada',
-      'Horas Parada (Decimal)',
-      'Horas Parada (Texto)',
+      'Fecha Inicio',
+      'Fecha Fin',
+      'Horas (Decimal)',
+      'Tiempo Formateado',
       'Diagnostico',
       'Solucion',
       'Repuestos',
@@ -565,7 +689,8 @@ class AnalyticsEngine {
     ];
 
     const rows = solicitudes.map(s => {
-      const eq = this.store.getEquipoById(s.equipoId);
+      const isReq = (s.tipoSolicitud === 'Requerimiento' || !s.equipoId);
+      const eq = s.equipoId ? this.store.getEquipoById(s.equipoId) : null;
       const area = this.store.getAreaById(s.areaId);
       const tec = s.tecnicoId ? this.store.getEmpleadoById(s.tecnicoId) : null;
       const contratistaNom = (s.tipoEjecutor === 'Contratista' && s.contratista) ? s.contratista.nombre : '';
@@ -574,12 +699,13 @@ class AnalyticsEngine {
 
       return [
         `SOL-${String(s.folio).padStart(3, '0')}`,
+        isReq ? 'Requerimiento' : 'Averia',
         s.fechaSolicitud || '',
         `"${(s.solicitante || '').replace(/"/g, '""')}"`,
         s.turno || '',
         `"${(area ? area.nombre : '').replace(/"/g, '""')}"`,
-        eq ? eq.codigo : '',
-        `"${(eq ? eq.nombre : '').replace(/"/g, '""')}"`,
+        eq ? eq.codigo : (isReq ? 'N/A' : ''),
+        `"${(eq ? eq.nombre : (isReq ? 'Servicio General de Área' : '')).replace(/"/g, '""')}"`,
         s.tipoFalla || '',
         s.criticidad || '',
         s.estado || '',
@@ -590,8 +716,8 @@ class AnalyticsEngine {
         costo,
         s.fechaInicio || '',
         s.fechaFin || '',
-        (s.tipoSolicitud === 'Requerimiento' ? (s.horasAtencionDecimal || 0) : (s.horasParadaDecimal || 0)),
-        (s.tipoSolicitud === 'Requerimiento' ? (s.horasAtencionTexto || '0h 00m') : (s.horasParadaTexto || '0h 00m')),
+        (isReq ? (s.horasAtencionDecimal || 0) : (s.horasParadaDecimal || 0)),
+        (isReq ? (s.horasAtencionTexto || '0h 00m') : (s.horasParadaTexto || '0h 00m')),
         `"${(s.diagnostico || '').replace(/"/g, '""')}"`,
         `"${(s.solucion || '').replace(/"/g, '""')}"`,
         `"${(s.repuestos || '').replace(/"/g, '""')}"`,
@@ -599,7 +725,7 @@ class AnalyticsEngine {
       ];
     });
 
-    const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map(r => r.join(';'))].join('\r\n');
+    const csvContent = '\uFEFF' + [...metadataRows, headers.join(';'), ...rows.map(r => r.join(';'))].join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);

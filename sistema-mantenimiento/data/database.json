@@ -3,7 +3,8 @@
   "config": {
     "nombreEmpresa": "Grupo Comercialilzadora Ferco",
     "moneda": "$",
-    "horasTurnoDia": 24,
+    "horasTurnoDia": 8,
+    "diasLaboralesSemana": 6,
     "pinMantenimiento": "1234",
     "pinAdmin": "9999"
   },

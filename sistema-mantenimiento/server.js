@@ -35,7 +35,8 @@ const BLANK_TEMPLATE = {
   config: {
     nombreEmpresa: 'Mi Planta Industrial',
     moneda: '$',
-    horasTurnoDia: 24,
+    horasTurnoDia: 8,
+    diasLaboralesSemana: 6,
     pinMantenimiento: '1234',
     pinAdmin: '9999'
   },
@@ -70,7 +71,8 @@ const INITIAL_SEED = {
   config: {
     nombreEmpresa: 'Planta Industrial Central',
     moneda: '$',
-    horasTurnoDia: 24,
+    horasTurnoDia: 8,
+    diasLaboralesSemana: 6,
     pinMantenimiento: '1234',
     pinAdmin: '9999'
   },
@@ -552,6 +554,10 @@ async function loadDatabase(targetEnv = null) {
       clean.solicitudes = Array.isArray(clean.solicitudes) ? clean.solicitudes : [];
       clean.preventivos = Array.isArray(clean.preventivos) ? clean.preventivos : [];
       clean.config = clean.config || (env === 'real' ? BLANK_TEMPLATE.config : INITIAL_SEED.config);
+      if (clean.config) {
+        if (!clean.config.diasLaboralesSemana) clean.config.diasLaboralesSemana = 6;
+        if (clean.config.horasTurnoDia === 24 || !clean.config.horasTurnoDia) clean.config.horasTurnoDia = 8;
+      }
       return clean;
     } catch (err) {
       console.error('⚠️ Error cargando base de datos desde MongoDB:', err.message);
@@ -564,6 +570,10 @@ async function loadDatabase(targetEnv = null) {
     const data = fs.readFileSync(filePath, 'utf8');
     const parsed = JSON.parse(data);
     parsed.environment = env;
+    if (parsed.config) {
+      if (!parsed.config.diasLaboralesSemana) parsed.config.diasLaboralesSemana = 6;
+      if (parsed.config.horasTurnoDia === 24 || !parsed.config.horasTurnoDia) parsed.config.horasTurnoDia = 8;
+    }
     return parsed;
   } catch (err) {
     console.error('⚠️ Error leyendo base de datos local:', err);
@@ -944,7 +954,7 @@ const server = http.createServer(async (req, res) => {
           equipoId: body.equipoId,
           areaId: body.areaId,
           frecuencia: body.frecuencia || 'Mensual',
-          diasFrecuencia: Number(body.diasFrecuencia) || 30,
+          diasFrecuencia: Number(body.diasFrecuencia) > 0 ? Number(body.diasFrecuencia) : ({ 'Semanal': 7, 'Quincenal': 15, 'Mensual': 30, 'Bimestral': 60, 'Trimestral': 90, 'Semestral': 180, 'Anual': 365 }[body.frecuencia] || 30),
           ultimaEjecucion: body.ultimaEjecucion || new Date().toISOString().slice(0, 10),
           proximaFecha: body.proximaFecha,
           estado: body.estado || 'Al Día',

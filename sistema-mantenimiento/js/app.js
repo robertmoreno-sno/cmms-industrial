@@ -305,7 +305,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const updateHeaderBadges = () => {
     const solicitudes = store.getSolicitudes();
     const pendientes = solicitudes.filter(s => s.estado === 'Pendiente').length;
-    const abiertas = solicitudes.filter(s => s.estado !== 'Culminada').length;
+    const abiertas = solicitudes.filter(s => s.estado !== 'Culminada' && s.estado !== 'Cancelada').length;
 
     const badgeProd = document.getElementById('badgeCountProd');
     const badgeGer = document.getElementById('badgeCountGerencia');
@@ -920,7 +920,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <span class="badge badge-outline">${area ? area.codigo : ''}</span>
             <strong>${eq ? eq.codigo : ''}</strong>
           </td>
-          <td><span class="badge badge-subtle">${p.frecuencia}</span></td>
+          <td>${p.frecuencia === 'Bimestral' ? '<span class="badge badge-subtle" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;">Bimestral (60d)</span>' : (p.frecuencia === 'Personalizado' ? `<span class="badge badge-subtle" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;">⚙️ Cada ${p.diasFrecuencia || 60}d</span>` : `<span class="badge badge-subtle">${p.frecuencia}</span>`)}</td>
           <td><small>${p.ultimaEjecucion || '-'}</small></td>
           <td><strong>${p.proximaFecha || '-'}</strong></td>
           <td>${estadoBadge}</td>
@@ -953,12 +953,75 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('prevEditId').value = '';
       document.getElementById('modalPrevTitle').innerHTML = `<span>📅</span> Registrar Plan Preventivo`;
 
+      const grpDias = document.getElementById('grpPrevDiasPersonalizados');
+      if (grpDias) grpDias.style.display = 'none';
+      const inputDias = document.getElementById('prevDiasPersonalizados');
+      if (inputDias) inputDias.value = '';
+
+      const proxInput = document.getElementById('prevProximaFecha');
+      if (proxInput) {
+        const d = new Date();
+        d.setDate(d.getDate() + 30);
+        proxInput.value = d.toISOString().slice(0, 10);
+      }
+
       const eqSel = document.getElementById('prevEquipoId');
       if (eqSel) {
         eqSel.innerHTML = '<option value="">Primero seleccione el área...</option>';
         eqSel.disabled = true;
       }
       openModal('modalPreventivo');
+    });
+  }
+
+  // Toggle y sugerencia según frecuencia de Preventivo
+  const selPrevFrecuencia = document.getElementById('prevFrecuencia');
+  const grpPrevDiasPersonalizados = document.getElementById('grpPrevDiasPersonalizados');
+  const inputPrevDiasPersonalizados = document.getElementById('prevDiasPersonalizados');
+  const inputPrevProximaFecha = document.getElementById('prevProximaFecha');
+
+  const mapDiasFrecuencia = {
+    'Semanal': 7,
+    'Quincenal': 15,
+    'Mensual': 30,
+    'Bimestral': 60,
+    'Trimestral': 90,
+    'Semestral': 180,
+    'Anual': 365
+  };
+
+  const sugerirProximaFechaPrev = (dias) => {
+    if (!dias || dias <= 0 || !inputPrevProximaFecha) return;
+    const d = new Date();
+    d.setDate(d.getDate() + Number(dias));
+    inputPrevProximaFecha.value = d.toISOString().slice(0, 10);
+  };
+
+  if (selPrevFrecuencia) {
+    selPrevFrecuencia.addEventListener('change', (e) => {
+      const freq = e.target.value;
+      if (freq === 'Personalizado') {
+        if (grpPrevDiasPersonalizados) grpPrevDiasPersonalizados.style.display = 'block';
+        if (inputPrevDiasPersonalizados) {
+          inputPrevDiasPersonalizados.focus();
+          if (inputPrevDiasPersonalizados.value) {
+            sugerirProximaFechaPrev(parseInt(inputPrevDiasPersonalizados.value, 10));
+          }
+        }
+      } else {
+        if (grpPrevDiasPersonalizados) grpPrevDiasPersonalizados.style.display = 'none';
+        const dias = mapDiasFrecuencia[freq] || 30;
+        sugerirProximaFechaPrev(dias);
+      }
+    });
+  }
+
+  if (inputPrevDiasPersonalizados) {
+    inputPrevDiasPersonalizados.addEventListener('input', (e) => {
+      const dias = parseInt(e.target.value, 10);
+      if (dias > 0) {
+        sugerirProximaFechaPrev(dias);
+      }
     });
   }
 
@@ -997,6 +1060,19 @@ document.addEventListener('DOMContentLoaded', async () => {
       const tareasText = document.getElementById('prevTareas').value.trim();
       const observaciones = document.getElementById('prevObservaciones').value.trim();
 
+      let diasFrecuencia = 30;
+      if (frecuencia === 'Personalizado') {
+        const diasNum = parseInt(inputPrevDiasPersonalizados ? inputPrevDiasPersonalizados.value : 0, 10);
+        if (!diasNum || diasNum <= 0) {
+          showToast('Indique la cantidad de días para la frecuencia personalizada.', 'warning');
+          if (inputPrevDiasPersonalizados) inputPrevDiasPersonalizados.focus();
+          return;
+        }
+        diasFrecuencia = diasNum;
+      } else {
+        diasFrecuencia = mapDiasFrecuencia[frecuencia] || 30;
+      }
+
       const tareas = tareasText.split('\n').map(t => t.trim()).filter(Boolean);
 
       const payload = {
@@ -1005,6 +1081,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         areaId,
         equipoId,
         frecuencia,
+        diasFrecuencia,
         proximaFecha,
         tipoEjecutor,
         responsableId: tipoEjecutor === 'Interno' ? responsableId : null,
@@ -1043,6 +1120,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     const kpiDownDec = document.getElementById('kpiTotalDowntimeDec');
     if (kpiDownDec) kpiDownDec.textContent = `${kpis.totalHorasDecimal} hrs (${kpis.averiasCulminadasCount || 0} averías)`;
 
+    // Disponibilidad Mecánica de Planta
+    const kpiDisp = document.getElementById('kpiDisponibilidadMecanica');
+    const kpiDispSub = document.getElementById('kpiDisponibilidadSubtext');
+    if (kpiDisp) {
+      kpiDisp.textContent = `${kpis.disponibilidadMecanicaDecimal}%`;
+      if (kpis.disponibilidadMecanicaDecimal >= 95) {
+        kpiDisp.style.color = '#059669';
+      } else if (kpis.disponibilidadMecanicaDecimal >= 85) {
+        kpiDisp.style.color = '#d97706';
+      } else {
+        kpiDisp.style.color = '#dc2626';
+      }
+    }
+    if (kpiDispSub) {
+      const jornada = `${kpis.horasPorDia || 8}h/d · ${kpis.diasLaboralesSemana || 6}d/sem`;
+      if (kpis.totalHorasDecimal === 0) {
+        kpiDispSub.textContent = `100% operativa (${kpis.horasPeriodoTotal || 0} hrs planif. | ${jornada})`;
+      } else {
+        kpiDispSub.textContent = `${kpis.tiempoOperativoNeto || 0} hrs oper. / ${kpis.horasPeriodoTotal || 0} hrs planif. (${jornada})`;
+      }
+    }
+
     const kpiAtencion = document.getElementById('kpiTotalAtencion');
     if (kpiAtencion) kpiAtencion.textContent = kpis.totalAtencionTexto || kpis.totalHorasAtencionTexto || '0h 00m';
     const kpiAtencionSub = document.getElementById('kpiTotalAtencionSub');
@@ -1055,7 +1154,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('kpiCostoSubtext').textContent = `${kpis.cantidadContratistas} intervenciones tercerizadas`;
 
     document.getElementById('kpiResolutionRate').textContent = `${kpis.tasaResolucion}%`;
-    document.getElementById('kpiCompletedCount').textContent = `${kpis.culminadasCount} de ${kpis.totalSolicitudes} cerradas`;
+    const desestimadasSub = kpis.canceladasCount > 0 ? ` (${kpis.canceladasCount} desestimadas)` : '';
+    document.getElementById('kpiCompletedCount').textContent = `${kpis.culminadasCount} de ${kpis.totalEfectivas || kpis.totalSolicitudes} cerradas${desestimadasSub}`;
 
     document.getElementById('kpiPrevCumplimiento').textContent = `${kpis.preventivos.cumplimiento}%`;
     document.getElementById('kpiPrevSubtext').textContent = `${kpis.preventivos.alDia} de ${kpis.preventivos.total} planes al día`;
@@ -1070,12 +1170,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     const tbody = document.getElementById('tbodyResumenEquipos');
     if (tbody) {
       if (downtimeData.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted" style="padding: 2rem;">No hay registros de paradas en este período.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted" style="padding: 2rem;">No hay registros de paradas en este período.</td></tr>`;
       } else {
         tbody.innerHTML = downtimeData.map(item => {
           let impactoBadge = `<span class="badge badge-success">🟢 Bajo</span>`;
           if (item.horasDecimal > 10 || item.paradasCount >= 3) impactoBadge = `<span class="badge badge-danger">🔴 Alto</span>`;
           else if (item.horasDecimal > 3 || item.paradasCount >= 2) impactoBadge = `<span class="badge badge-warning">🟡 Medio</span>`;
+
+          const disp = item.disponibilidadMecanica != null ? item.disponibilidadMecanica : 100;
+          let dispBadge = `<span class="badge badge-success" style="font-weight: 700;">🟢 ${disp}%</span>`;
+          if (disp < 85) {
+            dispBadge = `<span class="badge badge-danger" style="font-weight: 700;">🔴 ${disp}%</span>`;
+          } else if (disp < 95) {
+            dispBadge = `<span class="badge badge-warning" style="font-weight: 700;">🟡 ${disp}%</span>`;
+          }
 
           return `
             <tr>
@@ -1085,6 +1193,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               <td><strong class="text-primary">${item.paradasCount}</strong></td>
               <td>${item.horasDecimal} hrs</td>
               <td><strong>${item.horasTexto}</strong></td>
+              <td>${dispBadge}</td>
               <td>${kpis.moneda} ${item.costoTerceros.toFixed(2)}</td>
               <td>${impactoBadge}</td>
             </tr>
@@ -1200,11 +1309,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     const cfg = store.getConfig();
     const elNom = document.getElementById('cfgNombreEmpresa');
     const elMon = document.getElementById('cfgMoneda');
+    const elHoras = document.getElementById('cfgHorasTurnoDia');
+    const elDias = document.getElementById('cfgDiasLaboralesSemana');
     const elPinM = document.getElementById('cfgPinMantenimiento');
     const elPinA = document.getElementById('cfgPinAdmin');
 
     if (elNom) elNom.value = cfg.nombreEmpresa || '';
     if (elMon) elMon.value = cfg.moneda || '$';
+    if (elHoras) elHoras.value = cfg.horasTurnoDia || 8;
+    if (elDias) elDias.value = cfg.diasLaboralesSemana || 6;
     if (elPinM) elPinM.value = cfg.pinMantenimiento || '1234';
     if (elPinA) elPinA.value = cfg.pinAdmin || '9999';
   };
@@ -1213,17 +1326,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     e.preventDefault();
     const nombreEmpresa = document.getElementById('cfgNombreEmpresa').value.trim();
     const moneda = document.getElementById('cfgMoneda').value.trim();
+    const horasTurnoDia = Number(document.getElementById('cfgHorasTurnoDia')?.value) || 8;
+    const diasLaboralesSemana = Number(document.getElementById('cfgDiasLaboralesSemana')?.value) || 6;
     const pinMantenimiento = document.getElementById('cfgPinMantenimiento').value.trim();
     const pinAdmin = document.getElementById('cfgPinAdmin').value.trim();
 
     await store.updateConfig({
       nombreEmpresa,
       moneda,
+      horasTurnoDia,
+      diasLaboralesSemana,
       pinMantenimiento,
       pinAdmin
     });
 
-    showToast('Configuración y claves guardadas.', 'success');
+    renderMetricas();
+    showToast('Configuración guardada (Jornada actualizada para Disponibilidad).', 'success');
   });
 
   // Exportar e Importar JSON
@@ -1997,7 +2115,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     eqSel.innerHTML = equipos.map(e => `<option value="${e.id}">${e.codigo} - ${e.nombre}</option>`).join('');
     eqSel.value = p.equipoId;
 
-    document.getElementById('prevFrecuencia').value = p.frecuencia;
+    document.getElementById('prevFrecuencia').value = p.frecuencia || 'Mensual';
+    const grpDias = document.getElementById('grpPrevDiasPersonalizados');
+    const inputDias = document.getElementById('prevDiasPersonalizados');
+    if (p.frecuencia === 'Personalizado') {
+      if (grpDias) grpDias.style.display = 'block';
+      if (inputDias) inputDias.value = p.diasFrecuencia || '';
+    } else {
+      if (grpDias) grpDias.style.display = 'none';
+      if (inputDias) inputDias.value = '';
+    }
     document.getElementById('prevProximaFecha').value = p.proximaFecha;
     document.getElementById('prevTipoEjecutor').value = p.tipoEjecutor || 'Interno';
 

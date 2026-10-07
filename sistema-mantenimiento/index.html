@@ -359,7 +359,7 @@
         </div>
       </div>
 
-      <!-- Cuadrícula de 6 KPIs Estratégicos -->
+      <!-- Cuadrícula de 8 KPIs Estratégicos -->
       <div class="kpi-grid">
         <!-- KPI 1: Horas de Parada de Máquinas -->
         <div class="kpi-card kpi-downtime">
@@ -368,6 +368,16 @@
             <h3>Parada de Máquinas (Downtime)</h3>
             <div class="kpi-value" id="kpiTotalDowntime">0h 00m</div>
             <div class="kpi-subtext" id="kpiTotalDowntimeDec">0.00 horas en averías</div>
+          </div>
+        </div>
+
+        <!-- KPI: Disponibilidad Mecánica de Planta -->
+        <div class="kpi-card kpi-disponibilidad" style="border-left: 4px solid #10b981; background: var(--bg-card);">
+          <div class="kpi-icon-wrap" style="color: #059669; background: #d1fae5;">⚙️</div>
+          <div class="kpi-content">
+            <h3>Disponibilidad Mecánica</h3>
+            <div class="kpi-value" style="color: #059669;" id="kpiDisponibilidadMecanica">100.0%</div>
+            <div class="kpi-subtext" id="kpiDisponibilidadSubtext">100% operativa (0h parada)</div>
           </div>
         </div>
 
@@ -487,6 +497,7 @@
                 <th>Cantidad Paradas</th>
                 <th>Horas de Parada</th>
                 <th>Tiempo Formateado</th>
+                <th>Disp. Mecánica</th>
                 <th>Costo Terceros</th>
                 <th>Impacto en Planta</th>
               </tr>
@@ -623,6 +634,24 @@
             <div class="form-group" style="margin-bottom: 1rem;">
               <label class="form-label">Símbolo de Moneda (para Costos)</label>
               <input type="text" id="cfgMoneda" class="form-control" style="width: 120px;" required>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+              <div class="form-group">
+                <label class="form-label">Horas Operativas Diarias (Turno) <span class="req">*</span></label>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                  <input type="number" id="cfgHorasTurnoDia" class="form-control" min="1" max="24" value="8" required>
+                  <span class="text-muted" style="font-weight: 600; font-size: 0.85rem; white-space: nowrap;">hrs/día</span>
+                </div>
+                <span class="form-hint">Base de disponibilidad (Ej: 8 horas)</span>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Días Laborales por Semana <span class="req">*</span></label>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                  <input type="number" id="cfgDiasLaboralesSemana" class="form-control" min="1" max="7" value="6" required>
+                  <span class="text-muted" style="font-weight: 600; font-size: 0.85rem; white-space: nowrap;">días/sem</span>
+                </div>
+                <span class="form-hint">Jornada semanal (Ej: 6 días)</span>
+              </div>
             </div>
             <div class="form-group" style="margin-bottom: 1rem;">
               <label class="form-label">PIN de Acceso a Mantenimiento (4 dígitos)</label>
@@ -1222,10 +1251,22 @@
                 <option value="Semanal">Semanal (cada 7 días)</option>
                 <option value="Quincenal">Quincenal (cada 15 días)</option>
                 <option value="Mensual" selected>Mensual (cada 30 días)</option>
+                <option value="Bimestral">Bimestral (cada 60 días)</option>
                 <option value="Trimestral">Trimestral (cada 90 días)</option>
                 <option value="Semestral">Semestral (cada 180 días)</option>
                 <option value="Anual">Anual (cada 365 días)</option>
+                <option value="Personalizado">⚙️ Personalizado (según equipo)</option>
               </select>
+            </div>
+
+            <!-- Campo dinámico para frecuencia personalizada -->
+            <div class="form-group" id="grpPrevDiasPersonalizados" style="display: none;">
+              <label class="form-label">Días de Intervalo Personalizado <span class="req">*</span></label>
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <input type="number" id="prevDiasPersonalizados" class="form-control" min="1" max="1825" placeholder="Ej: 45 o 60">
+                <span class="text-muted" style="font-weight: 600; font-size: 0.85rem; white-space: nowrap;">días</span>
+              </div>
+              <small class="text-muted">Frecuencia configurada a medida para este equipo</small>
             </div>
 
             <div class="form-group col-span-2">
