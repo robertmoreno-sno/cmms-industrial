@@ -326,6 +326,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const selects = [
       document.getElementById('filterAreaProd'),
       document.getElementById('filterAreaGerencia'),
+      document.getElementById('filterAreaPreventivo'),
       document.getElementById('solAreaId'),
       document.getElementById('equipoAreaId'),
       document.getElementById('prevAreaId')
@@ -864,27 +865,111 @@ document.addEventListener('DOMContentLoaded', async () => {
     const tbody = document.getElementById('tbodyPreventivos');
     if (!tbody) return;
 
-    const preventivos = store.getPreventivos();
+    let preventivos = store.getPreventivos();
     const countLabel = document.getElementById('prevTableCount');
-    if (countLabel) countLabel.textContent = `${preventivos.length} planes registrados`;
 
-    // Actualizar KPIs de Preventivo
-    const alDia = preventivos.filter(p => store.evaluarEstadoPreventivo(p.proximaFecha) === 'Al Día').length;
-    const proximos = preventivos.filter(p => store.evaluarEstadoPreventivo(p.proximaFecha) === 'Próximo').length;
-    const vencidos = preventivos.filter(p => store.evaluarEstadoPreventivo(p.proximaFecha) === 'Vencido').length;
+    // 1. Métricas Globales de Cabecera (Total de la planta)
+    const totalGlobal = preventivos.length;
+    const alDiaGlobal = preventivos.filter(p => store.evaluarEstadoPreventivo(p.proximaFecha) === 'Al Día').length;
+    const proximosGlobal = preventivos.filter(p => store.evaluarEstadoPreventivo(p.proximaFecha) === 'Próximo').length;
+    const vencidosGlobal = preventivos.filter(p => store.evaluarEstadoPreventivo(p.proximaFecha) === 'Vencido').length;
 
     const elTotal = document.getElementById('kpiPrevTotal');
     const elAlDia = document.getElementById('kpiPrevAlDia');
     const elProx = document.getElementById('kpiPrevProximos');
     const elVenc = document.getElementById('kpiPrevVencidos');
 
-    if (elTotal) elTotal.textContent = preventivos.length;
-    if (elAlDia) elAlDia.textContent = alDia;
-    if (elProx) elProx.textContent = proximos;
-    if (elVenc) elVenc.textContent = vencidos;
+    if (elTotal) elTotal.textContent = totalGlobal;
+    if (elAlDia) elAlDia.textContent = alDiaGlobal;
+    if (elProx) elProx.textContent = proximosGlobal;
+    if (elVenc) elVenc.textContent = vencidosGlobal;
+
+    // 2. Filtros y Búsqueda
+    const search = (document.getElementById('searchPreventivo')?.value || '').toLowerCase().trim();
+    const estadoFilter = document.getElementById('filterEstadoPreventivo')?.value || 'Todos';
+    const areaFilter = document.getElementById('filterAreaPreventivo')?.value || 'Todas';
+    const frecuenciaFilter = document.getElementById('filterFrecuenciaPreventivo')?.value || 'Todas';
+
+    // Filtro por Estado / Ejecución
+    if (estadoFilter !== 'Todos') {
+      preventivos = preventivos.filter(p => {
+        const estadoActual = store.evaluarEstadoPreventivo(p.proximaFecha);
+        const haSidoEjecutado = Boolean(
+          (p.vecesEjecutado && p.vecesEjecutado > 0) || 
+          (p.ultimaEjecucion && p.ultimaEjecucion !== '-' && p.ultimaEjecucion !== '')
+        );
+
+        if (estadoFilter === 'AlDia') {
+          return estadoActual === 'Al Día';
+        }
+        if (estadoFilter === 'Ejecutados') {
+          return haSidoEjecutado;
+        }
+        if (estadoFilter === 'NoEjecutados') {
+          return !haSidoEjecutado;
+        }
+        if (estadoFilter === 'Proximos') {
+          return estadoActual === 'Próximo';
+        }
+        if (estadoFilter === 'Vencidos') {
+          return estadoActual === 'Vencido';
+        }
+        return true;
+      });
+    }
+
+    // Filtro por Área
+    if (areaFilter !== 'Todas') {
+      preventivos = preventivos.filter(p => p.areaId === areaFilter);
+    }
+
+    // Filtro por Frecuencia
+    if (frecuenciaFilter !== 'Todas') {
+      preventivos = preventivos.filter(p => p.frecuencia === frecuenciaFilter);
+    }
+
+    // Búsqueda de Texto
+    if (search) {
+      preventivos = preventivos.filter(p => {
+        const area = store.getAreaById(p.areaId);
+        const eq = store.getEquipoById(p.equipoId);
+        const emp = p.responsableId ? store.getEmpleadoById(p.responsableId) : null;
+        const contratista = p.contratistaPrevisto?.nombre || '';
+        const tareasStr = (p.tareas || []).join(' ');
+
+        const texto = [
+          p.codigo || '',
+          p.titulo || '',
+          p.frecuencia || '',
+          area?.codigo || '',
+          area?.nombre || '',
+          eq?.codigo || '',
+          eq?.nombre || '',
+          emp?.nombre || '',
+          contratista,
+          tareasStr,
+          p.observaciones || ''
+        ].join(' ').toLowerCase();
+
+        return texto.includes(search);
+      });
+    }
+
+    // Actualizar conteo visible
+    if (countLabel) {
+      if (preventivos.length === totalGlobal) {
+        countLabel.textContent = `${totalGlobal} planes registrados`;
+      } else {
+        countLabel.textContent = `Mostrando ${preventivos.length} de ${totalGlobal} planes`;
+      }
+    }
 
     if (preventivos.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="10" class="text-center text-muted" style="padding: 2.5rem;">No hay planes preventivos registrados. Cree uno con el botón superior.</td></tr>`;
+      if (totalGlobal === 0) {
+        tbody.innerHTML = `<tr><td colspan="10" class="text-center text-muted" style="padding: 2.5rem;">No hay planes preventivos registrados. Cree uno con el botón superior.</td></tr>`;
+      } else {
+        tbody.innerHTML = `<tr><td colspan="10" class="text-center text-muted" style="padding: 2.5rem;">🔍 No se encontraron planes que coincidan con la búsqueda o filtro seleccionado.</td></tr>`;
+      }
       return;
     }
 
@@ -895,10 +980,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       const area = store.getAreaById(p.areaId);
       const eq = store.getEquipoById(p.equipoId);
       const estadoActual = store.evaluarEstadoPreventivo(p.proximaFecha);
+      const haSidoEjecutado = Boolean(
+        (p.vecesEjecutado && p.vecesEjecutado > 0) || 
+        (p.ultimaEjecucion && p.ultimaEjecucion !== '-' && p.ultimaEjecucion !== '')
+      );
 
       let estadoBadge = `<span class="badge badge-prev-aldia">🟢 Al Día</span>`;
       if (estadoActual === 'Próximo') estadoBadge = `<span class="badge badge-prev-proximo">🟡 Próximo (${p.proximaFecha})</span>`;
       else if (estadoActual === 'Vencido') estadoBadge = `<span class="badge badge-prev-vencido">🔴 Vencido (${p.proximaFecha})</span>`;
+
+      let ejecucionBadge = `<span class="badge badge-subtle" style="color:var(--text-muted); font-size:0.8rem;">⏳ Sin ejecutar</span>`;
+      if (haSidoEjecutado) {
+        const veces = p.vecesEjecutado ? ` (${p.vecesEjecutado}x)` : '';
+        ejecucionBadge = `<span class="badge badge-success" style="font-size:0.8rem; font-weight:600;">✅ ${p.ultimaEjecucion}${veces}</span>`;
+      }
 
       let ejecutorPrev = '<span class="text-muted">Interno</span>';
       if (p.tipoEjecutor === 'Contratista') {
@@ -921,7 +1016,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <strong>${eq ? eq.codigo : ''}</strong>
           </td>
           <td>${p.frecuencia === 'Bimestral' ? '<span class="badge badge-subtle" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;">Bimestral (60d)</span>' : (p.frecuencia === 'Personalizado' ? `<span class="badge badge-subtle" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;">⚙️ Cada ${p.diasFrecuencia || 60}d</span>` : `<span class="badge badge-subtle">${p.frecuencia}</span>`)}</td>
-          <td><small>${p.ultimaEjecucion || '-'}</small></td>
+          <td>${ejecucionBadge}</td>
           <td><strong>${p.proximaFecha || '-'}</strong></td>
           <td>${estadoBadge}</td>
           <td>${ejecutorPrev}</td>
@@ -1103,6 +1198,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       renderPreventivo();
     });
   }
+
+  // Filtros interactivos de Preventivo
+  ['searchPreventivo', 'filterEstadoPreventivo', 'filterAreaPreventivo', 'filterFrecuenciaPreventivo'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', renderPreventivo);
+      el.addEventListener('change', renderPreventivo);
+    }
+  });
+
+  window.cmmsFiltrarPreventivoRapido = (estado) => {
+    const el = document.getElementById('filterEstadoPreventivo');
+    if (el) {
+      el.value = estado || 'Todos';
+      renderPreventivo();
+    }
+  };
 
   // ==========================================================================
   // VISTA 4: MÉTRICAS Y ANALÍTICA (MTTR, MTBF, EFICIENCIA, COSTOS)

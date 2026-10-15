@@ -498,7 +498,8 @@ class CMMSStore {
       areaId: nuevo.areaId,
       frecuencia: nuevo.frecuencia || 'Mensual',
       diasFrecuencia: diasFrecuenciaCalculado,
-      ultimaEjecucion: nuevo.ultimaEjecucion || new Date().toISOString().slice(0, 10),
+      ultimaEjecucion: nuevo.ultimaEjecucion || null,
+      vecesEjecutado: Number(nuevo.vecesEjecutado) || 0,
       proximaFecha: nuevo.proximaFecha,
       estado: this.evaluarEstadoPreventivo(nuevo.proximaFecha),
       responsableId: nuevo.responsableId || null,
@@ -616,7 +617,9 @@ class CMMSStore {
     prox.setDate(prox.getDate() + (prev.diasFrecuencia || 30));
     await this.updatePreventivo(prev.id, {
       ultimaEjecucion: new Date().toISOString().slice(0, 10),
-      proximaFecha: prox.toISOString().slice(0, 10)
+      proximaFecha: prox.toISOString().slice(0, 10),
+      vecesEjecutado: (Number(prev.vecesEjecutado) || 0) + 1,
+      ultimaOTId: sol.id
     });
 
     return sol;

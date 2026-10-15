@@ -270,7 +270,7 @@
 
       <!-- Tarjetas Resumen de Preventivo -->
       <div class="kpi-grid">
-        <div class="kpi-card kpi-preventivo-total">
+        <div class="kpi-card kpi-preventivo-total" style="cursor: pointer;" onclick="window.cmmsFiltrarPreventivoRapido('Todos')" title="Ver todos los planes">
           <div class="kpi-icon-wrap">📋</div>
           <div class="kpi-content">
             <h3>Total Planes Registrados</h3>
@@ -278,7 +278,7 @@
             <div class="kpi-subtext">Planes activos en planta</div>
           </div>
         </div>
-        <div class="kpi-card kpi-preventivo-aldia">
+        <div class="kpi-card kpi-preventivo-aldia" style="cursor: pointer;" onclick="window.cmmsFiltrarPreventivoRapido('AlDia')" title="Filtrar planes al día">
           <div class="kpi-icon-wrap">🟢</div>
           <div class="kpi-content">
             <h3>Planes al Día</h3>
@@ -286,7 +286,7 @@
             <div class="kpi-subtext">Sin retrasos programados</div>
           </div>
         </div>
-        <div class="kpi-card kpi-preventivo-proximos">
+        <div class="kpi-card kpi-preventivo-proximos" style="cursor: pointer;" onclick="window.cmmsFiltrarPreventivoRapido('Proximos')" title="Filtrar planes próximos a vencer">
           <div class="kpi-icon-wrap">🟡</div>
           <div class="kpi-content">
             <h3>Próximos a Vencer</h3>
@@ -294,13 +294,52 @@
             <div class="kpi-subtext">En los próximos 5 días</div>
           </div>
         </div>
-        <div class="kpi-card kpi-preventivo-vencidos">
+        <div class="kpi-card kpi-preventivo-vencidos" style="cursor: pointer;" onclick="window.cmmsFiltrarPreventivoRapido('Vencidos')" title="Filtrar planes vencidos">
           <div class="kpi-icon-wrap">🔴</div>
           <div class="kpi-content">
             <h3>Planes Vencidos</h3>
             <div class="kpi-value text-danger" id="kpiPrevVencidos">0</div>
             <div class="kpi-subtext">Requieren atención urgente</div>
           </div>
+        </div>
+      </div>
+
+      <!-- Barra de Filtros de Preventivo -->
+      <div class="filter-bar">
+        <div class="search-input-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchPreventivo" placeholder="Buscar por código, título, equipo, área o tarea...">
+        </div>
+        <div class="filter-select-wrap">
+          <label for="filterEstadoPreventivo">Estado / Ejecución:</label>
+          <select id="filterEstadoPreventivo" class="filter-select">
+            <option value="Todos">Todos los Estados</option>
+            <option value="AlDia">🟢 Al Día (Vigentes)</option>
+            <option value="Ejecutados">✅ Ejecutados (Con historial de ejecución)</option>
+            <option value="NoEjecutados">⏳ No Ejecutados (Sin ejecutar / Pendientes)</option>
+            <option value="Proximos">🟡 Próximos a Vencer (≤ 5 días)</option>
+            <option value="Vencidos">🔴 Vencidos / Atrasados</option>
+          </select>
+        </div>
+        <div class="filter-select-wrap">
+          <label for="filterAreaPreventivo">Área:</label>
+          <select id="filterAreaPreventivo" class="filter-select">
+            <option value="Todas">Todas las Áreas</option>
+          </select>
+        </div>
+        <div class="filter-select-wrap">
+          <label for="filterFrecuenciaPreventivo">Frecuencia:</label>
+          <select id="filterFrecuenciaPreventivo" class="filter-select">
+            <option value="Todas">Todas las Frecuencias</option>
+            <option value="Semanal">Semanal</option>
+            <option value="Quincenal">Quincenal</option>
+            <option value="Mensual">Mensual</option>
+            <option value="Bimestral">Bimestral (60d)</option>
+            <option value="Trimestral">Trimestral</option>
+            <option value="Semestral">Semestral</option>
+            <option value="Anual">Anual</option>
+            <option value="Personalizado">Personalizado</option>
+          </select>
         </div>
       </div>
 
