@@ -140,7 +140,7 @@ class CMMSStore {
       try {
         const serverData = await this.api.getAllData();
         if (serverData && serverData.solicitudes) {
-          this.data = serverData;
+          this.data = this.normalizeData(serverData);
           this.isServerConnected = true;
           this.saveLocalCache();
           this.setupRealtimeListener();
@@ -155,7 +155,7 @@ class CMMSStore {
     const cached = localStorage.getItem(this.storageKey);
     if (cached) {
       try {
-        this.data = JSON.parse(cached);
+        this.data = this.normalizeData(JSON.parse(cached));
       } catch (e) {
         console.error('Error parseando caché local:', e);
       }
@@ -163,9 +163,21 @@ class CMMSStore {
 
     // 3. Si sigue vacío o sin áreas, asegurar SEED_FALLBACK
     if (!this.data.areas || this.data.areas.length === 0) {
-      this.data = JSON.parse(JSON.stringify(SEED_FALLBACK));
+      this.data = this.normalizeData(JSON.parse(JSON.stringify(SEED_FALLBACK)));
       this.saveLocalCache();
     }
+  }
+
+  normalizeData(data) {
+    if (!data) return data;
+    if (Array.isArray(data.solicitudes)) {
+      data.solicitudes.forEach(s => {
+        if ((s.tipoFalla === 'Mantenimiento Preventivo' || (s.descripcion && s.descripcion.startsWith('[PLAN PREVENTIVO'))) && s.tipoSolicitud !== 'Preventivo') {
+          s.tipoSolicitud = 'Preventivo';
+        }
+      });
+    }
+    return data;
   }
 
   saveLocalCache() {
@@ -181,7 +193,7 @@ class CMMSStore {
       try {
         const fresh = await this.api.getAllData();
         if (fresh && fresh.solicitudes) {
-          this.data = fresh;
+          this.data = this.normalizeData(fresh);
           this.saveLocalCache();
           window.dispatchEvent(new CustomEvent('cmms:data-updated'));
         }
@@ -202,7 +214,7 @@ class CMMSStore {
       try {
         const res = await this.api.switchEnvironment(targetEnv);
         if (res && res.data) {
-          this.data = res.data;
+          this.data = this.normalizeData(res.data);
           this.saveLocalCache();
           window.dispatchEvent(new CustomEvent('cmms:env-changed', { detail: { env: targetEnv } }));
           window.dispatchEvent(new CustomEvent('cmms:data-updated'));
@@ -224,7 +236,7 @@ class CMMSStore {
     if (this.isServerConnected) {
       await this.api.resetRealEnvironment();
       const fresh = await this.api.getAllData();
-      this.data = fresh;
+      this.data = this.normalizeData(fresh);
       this.saveLocalCache();
       window.dispatchEvent(new CustomEvent('cmms:data-updated'));
       return;
@@ -304,8 +316,11 @@ class CMMSStore {
     const maxFolio = (this.data.solicitudes || []).reduce((max, s) => Math.max(max, s.folio || 0), 0);
     const nextFolio = maxFolio + 1;
     const id = `SOL-2026-${String(nextFolio).padStart(3, '0')}`;
-    const tipoSolicitud = nueva.tipoSolicitud === 'Requerimiento' ? 'Requerimiento' : 'Averia';
+    const tipoSolicitud = nueva.tipoSolicitud === 'Preventivo'
+      ? 'Preventivo'
+      : (nueva.tipoSolicitud === 'Requerimiento' ? 'Requerimiento' : 'Averia');
     const isReq = tipoSolicitud === 'Requerimiento';
+    const isPrev = tipoSolicitud === 'Preventivo';
     const equipoId = isReq ? null : (nueva.equipoId || null);
 
     const getLocalNow = () => {
@@ -317,13 +332,13 @@ class CMMSStore {
     const solicitudObj = {
       id,
       folio: nextFolio,
-      tipoSolicitud, // 'Averia' | 'Requerimiento'
+      tipoSolicitud, // 'Averia' | 'Requerimiento' | 'Preventivo'
       fechaSolicitud: nueva.fechaSolicitud || getLocalNow(),
       solicitante: nueva.solicitante.trim(),
       turno: nueva.turno || 'Mañana',
       areaId: nueva.areaId,
       equipoId,
-      tipoFalla: nueva.tipoFalla || (isReq ? 'Servicios Generales' : 'Mecánica'),
+      tipoFalla: nueva.tipoFalla || (isReq ? 'Servicios Generales' : (isPrev ? 'Mantenimiento Preventivo' : 'Mecánica')),
       criticidad: nueva.criticidad || 'Media',
       descripcion: nueva.descripcion.trim(),
       estado: 'Pendiente',
@@ -334,7 +349,7 @@ class CMMSStore {
       fechaInicio: null,
       fechaFin: null,
       horasParadaDecimal: 0,
-      horasParadaTexto: isReq ? 'No aplica (Operativo)' : 'Por iniciar',
+      horasParadaTexto: isReq ? 'No aplica (Operativo)' : (isPrev ? 'Mantenimiento Programado' : 'Por iniciar'),
       minutosParadaTotal: 0,
       horasAtencionDecimal: 0,
       horasAtencionTexto: 'Por iniciar',
@@ -476,11 +491,19 @@ class CMMSStore {
 
   // PREVENTIVOS
   getPreventivos() {
-    return this.data.preventivos || [];
+    return (this.data.preventivos || []).map(p => ({
+      ...p,
+      estado: this.evaluarEstadoPreventivo(p.proximaFecha)
+    }));
   }
 
   getPreventivoById(id) {
-    return (this.data.preventivos || []).find(p => p.id === id);
+    const p = (this.data.preventivos || []).find(item => item.id === id);
+    if (!p) return null;
+    return {
+      ...p,
+      estado: this.evaluarEstadoPreventivo(p.proximaFecha)
+    };
   }
 
   async createPreventivo(nuevo) {
@@ -558,11 +581,12 @@ class CMMSStore {
   }
 
   evaluarEstadoPreventivo(proximaFechaStr) {
-    if (!proximaFechaStr) return 'Al Día';
+    if (!proximaFechaStr || proximaFechaStr === '-') return 'Al Día';
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
 
-    const proxima = new Date(proximaFechaStr);
+    const dateStr = proximaFechaStr.includes('T') ? proximaFechaStr : `${proximaFechaStr}T00:00:00`;
+    const proxima = new Date(dateStr);
     proxima.setHours(0, 0, 0, 0);
 
     const diffDays = Math.ceil((proxima - hoy) / (1000 * 60 * 60 * 24));
@@ -581,6 +605,7 @@ class CMMSStore {
     const tareasTexto = (prev.tareas || []).map((t, idx) => `${idx + 1}. ${t}`).join('\n');
 
     const nuevaSol = {
+      tipoSolicitud: 'Preventivo',
       solicitante: 'Planificador de Preventivo (Sistema)',
       turno: 'Programado',
       areaId: prev.areaId,

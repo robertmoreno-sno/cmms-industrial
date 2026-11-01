@@ -103,6 +103,7 @@
           <select id="filterTipoProd" class="filter-select">
             <option value="Todos">Todos los Tipos</option>
             <option value="Averia">🛠️ Averías de Equipo</option>
+            <option value="Preventivo">📅 Preventivos Programados</option>
             <option value="Requerimiento">📋 Requerimientos de Área</option>
           </select>
         </div>
@@ -187,6 +188,7 @@
           <select id="filterTipoGerencia" class="filter-select">
             <option value="Todos">Todos los Tipos</option>
             <option value="Averia">🛠️ Averías de Equipo</option>
+            <option value="Preventivo">📅 Preventivos Programados</option>
             <option value="Requerimiento">📋 Requerimientos de Área</option>
           </select>
         </div>
@@ -883,7 +885,8 @@
                 <span>🎯</span> Tipo de Reporte o Solicitud <span class="req">*</span>
               </label>
               <select id="solTipoSolicitud" class="form-control" style="font-weight: 600; font-size: 0.95rem;">
-                <option value="Averia" selected>🛠️ Avería de Equipo (Falla en maquinaria - Computa parada de planta)</option>
+                <option value="Averia" selected>🛠️ Avería de Equipo (Falla imprevista en maquinaria - Computa parada de planta)</option>
+                <option value="Preventivo">📅 Mantenimiento Preventivo (Mantenimiento programado en equipo)</option>
                 <option value="Requerimiento">📋 Requerimiento / Solicitud de Área (Servicio general o mejora - Computa tiempo de atención)</option>
               </select>
               <div id="solTipoHelpText" style="margin-top: 0.45rem; font-size: 0.82rem; color: var(--text-muted); line-height: 1.35;">

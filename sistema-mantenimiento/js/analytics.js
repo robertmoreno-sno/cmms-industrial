@@ -44,13 +44,16 @@ class AnalyticsEngine {
     const solicitudes = this.getFilteredRequests(dateRange, customStart, customEnd);
     const totalSolicitudes = solicitudes.length;
 
-    let totalMinutosParada = 0;       // Solo para Averías de Equipos (Parada de planta)
+    let totalMinutosParada = 0;       // Solo para Averías de Equipos (Parada no planificada de planta)
     let totalMinutosAtencion = 0;     // Para Requerimientos / Servicios de Área
+    let totalMinutosPreventivo = 0;   // Para Mantenimientos Preventivos Programados
     let culminadasCount = 0;
     let averiasCulminadasCount = 0;
     let requerimientosCulminadosCount = 0;
+    let preventivosOTCulminadosCount = 0;
     let averiasTotalCount = 0;
     let requerimientosTotalCount = 0;
+    let preventivosOTTotalCount = 0;
 
     let enIntervencionCount = 0;
     let pendientesCount = 0;
@@ -68,7 +71,9 @@ class AnalyticsEngine {
       }
 
       const isReq = (s.tipoSolicitud === 'Requerimiento' || !s.equipoId);
+      const isPrev = (s.tipoSolicitud === 'Preventivo' || s.tipoFalla === 'Mantenimiento Preventivo');
       if (isReq) requerimientosTotalCount++;
+      else if (isPrev) preventivosOTTotalCount++;
       else averiasTotalCount++;
 
       if (s.estado === 'Culminada') {
@@ -76,6 +81,9 @@ class AnalyticsEngine {
         if (isReq) {
           requerimientosCulminadosCount++;
           totalMinutosAtencion += (s.minutosAtencionTotal || s.minutosParadaTotal || 0);
+        } else if (isPrev) {
+          preventivosOTCulminadosCount++;
+          totalMinutosPreventivo += (s.minutosAtencionTotal || s.minutosParadaTotal || 0);
         } else {
           averiasCulminadasCount++;
           totalMinutosParada += (s.minutosParadaTotal || 0);
@@ -96,7 +104,7 @@ class AnalyticsEngine {
       }
     });
 
-    // Horas de Parada de Equipos (Downtime real de planta)
+    // Horas de Parada de Equipos (Downtime real no planificado de planta)
     const totalHorasDecimal = Number((totalMinutosParada / 60).toFixed(2));
     const h = Math.floor(totalMinutosParada / 60);
     const m = totalMinutosParada % 60;
@@ -107,6 +115,12 @@ class AnalyticsEngine {
     const ah = Math.floor(totalMinutosAtencion / 60);
     const am = totalMinutosAtencion % 60;
     const totalAtencionTexto = `${ah}h ${am.toString().padStart(2, '0')}m`;
+
+    // Tiempo Invertido en Mantenimientos Preventivos Programados
+    const totalPreventivoDecimal = Number((totalMinutosPreventivo / 60).toFixed(2));
+    const ph = Math.floor(totalMinutosPreventivo / 60);
+    const pm = totalMinutosPreventivo % 60;
+    const totalPreventivoTexto = `${ph}h ${pm.toString().padStart(2, '0')}m`;
 
     // MTTR (Mean Time To Repair en horas): Horas de parada / fallas de equipo culminadas
     const mttrDecimal = averiasCulminadasCount > 0
@@ -141,9 +155,14 @@ class AnalyticsEngine {
     // Métricas de Preventivo
     const preventivos = this.store.getPreventivos();
     const totalPrev = preventivos.length;
-    const prevAlDia = preventivos.filter(p => p.estado === 'Al Día').length;
-    const prevVencidos = preventivos.filter(p => p.estado === 'Vencido').length;
-    const prevProximos = preventivos.filter(p => p.estado === 'Próximo').length;
+    const evaluar = (p) => (this.store && typeof this.store.evaluarEstadoPreventivo === 'function')
+      ? this.store.evaluarEstadoPreventivo(p.proximaFecha)
+      : (p.estado || 'Al Día');
+
+    const prevAlDia = preventivos.filter(p => evaluar(p) === 'Al Día').length;
+    const prevVencidos = preventivos.filter(p => evaluar(p) === 'Vencido').length;
+    const prevProximos = preventivos.filter(p => evaluar(p) === 'Próximo').length;
+    const prevEjecutados = preventivos.filter(p => (Number(p.vecesEjecutado) > 0) || Boolean(p.ultimaOTId)).length;
     const tasaCumplimientoPrev = totalPrev > 0 ? Math.round((prevAlDia / totalPrev) * 100) : 100;
 
     // Tasa de Resolución: Calculada sobre el trabajo operativo efectivo (las desestimadas no cuentan como pendientes)
@@ -159,9 +178,11 @@ class AnalyticsEngine {
       totalValidas: totalEfectivas,
       averiasTotalCount,
       requerimientosTotalCount,
+      preventivosOTTotalCount,
       culminadasCount,
       averiasCulminadasCount,
       requerimientosCulminadosCount,
+      preventivosOTCulminadosCount,
       totalAbiertas,
       enIntervencionCount,
       pendientesCount,
@@ -176,6 +197,9 @@ class AnalyticsEngine {
       totalAtencionTexto,
       totalHorasAtencionDecimal: totalAtencionDecimal,
       totalHorasAtencionTexto: totalAtencionTexto,
+      totalMinutosPreventivo,
+      totalPreventivoDecimal,
+      totalPreventivoTexto,
       mttrDecimal,
       mtbfDecimal,
       disponibilidadMecanica: disponibilidadMecanicaDecimal,
@@ -197,6 +221,7 @@ class AnalyticsEngine {
         alDia: prevAlDia,
         vencidos: prevVencidos,
         proximos: prevProximos,
+        ejecutados: prevEjecutados,
         cumplimiento: tasaCumplimientoPrev
       }
     };
@@ -258,9 +283,14 @@ class AnalyticsEngine {
     return this.getWorkingDays(dateRange, customStart, customEnd, diasLaboralesSemana);
   }
 
-  // 1. Horas y Conteo de Paradas por Equipo (Solo Averías con Equipo operativas)
+  // 1. Horas y Conteo de Paradas por Equipo (Solo Averías no planificadas con Equipo)
   getDowntimeByEquipment(dateRange = 'all') {
-    const solicitudes = this.getFilteredRequests(dateRange).filter(s => s.equipoId && s.tipoSolicitud !== 'Requerimiento' && s.estado !== 'Cancelada');
+    const solicitudes = this.getFilteredRequests(dateRange).filter(s => {
+      if (!s.equipoId || s.estado === 'Cancelada') return false;
+      const isReq = (s.tipoSolicitud === 'Requerimiento');
+      const isPrev = (s.tipoSolicitud === 'Preventivo' || s.tipoFalla === 'Mantenimiento Preventivo');
+      return !isReq && !isPrev;
+    });
     const map = {};
 
     const config = this.store.getConfig();
@@ -339,10 +369,16 @@ class AnalyticsEngine {
       }
 
       const isReq = (s.tipoSolicitud === 'Requerimiento' || !s.equipoId);
+      const isPrev = (s.tipoSolicitud === 'Preventivo' || s.tipoFalla === 'Mantenimiento Preventivo');
       if (isReq) {
         map[s.areaId].requerimientosCount++;
         if (s.estado === 'Culminada') {
           map[s.areaId].minutosAtencion += (s.minutosAtencionTotal || s.minutosParadaTotal || 0);
+        }
+      } else if (isPrev) {
+        map[s.areaId].preventivosCount = (map[s.areaId].preventivosCount || 0) + 1;
+        if (s.estado === 'Culminada') {
+          map[s.areaId].minutosPreventivo = (map[s.areaId].minutosPreventivo || 0) + (s.minutosAtencionTotal || s.minutosParadaTotal || 0);
         }
       } else {
         map[s.areaId].paradasCount++;
@@ -690,6 +726,7 @@ class AnalyticsEngine {
 
     const rows = solicitudes.map(s => {
       const isReq = (s.tipoSolicitud === 'Requerimiento' || !s.equipoId);
+      const isPrev = (s.tipoSolicitud === 'Preventivo' || s.tipoFalla === 'Mantenimiento Preventivo');
       const eq = s.equipoId ? this.store.getEquipoById(s.equipoId) : null;
       const area = this.store.getAreaById(s.areaId);
       const tec = s.tecnicoId ? this.store.getEmpleadoById(s.tecnicoId) : null;
@@ -697,9 +734,13 @@ class AnalyticsEngine {
       const oc = (s.tipoEjecutor === 'Contratista' && s.contratista) ? s.contratista.ordenCompra : '';
       const costo = (s.tipoEjecutor === 'Contratista' && s.contratista) ? s.contratista.costo : 0;
 
+      const tipoStr = isReq ? 'Requerimiento' : (isPrev ? 'Preventivo' : 'Averia');
+      const horasDecExport = isReq ? (s.horasAtencionDecimal || 0) : (isPrev ? (s.horasAtencionDecimal || s.horasParadaDecimal || 0) : (s.horasParadaDecimal || 0));
+      const horasTextoExport = isReq ? (s.horasAtencionTexto || '0h 00m') : (isPrev ? (s.horasAtencionTexto || s.horasParadaTexto || '0h 00m') : (s.horasParadaTexto || '0h 00m'));
+
       return [
         `SOL-${String(s.folio).padStart(3, '0')}`,
-        isReq ? 'Requerimiento' : 'Averia',
+        tipoStr,
         s.fechaSolicitud || '',
         `"${(s.solicitante || '').replace(/"/g, '""')}"`,
         s.turno || '',
@@ -716,8 +757,8 @@ class AnalyticsEngine {
         costo,
         s.fechaInicio || '',
         s.fechaFin || '',
-        (isReq ? (s.horasAtencionDecimal || 0) : (s.horasParadaDecimal || 0)),
-        (isReq ? (s.horasAtencionTexto || '0h 00m') : (s.horasParadaTexto || '0h 00m')),
+        horasDecExport,
+        horasTextoExport,
         `"${(s.diagnostico || '').replace(/"/g, '""')}"`,
         `"${(s.solucion || '').replace(/"/g, '""')}"`,
         `"${(s.repuestos || '').replace(/"/g, '""')}"`,

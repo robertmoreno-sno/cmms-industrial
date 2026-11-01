@@ -558,6 +558,18 @@ async function loadDatabase(targetEnv = null) {
         if (!clean.config.diasLaboralesSemana) clean.config.diasLaboralesSemana = 6;
         if (clean.config.horasTurnoDia === 24 || !clean.config.horasTurnoDia) clean.config.horasTurnoDia = 8;
       }
+      if (Array.isArray(clean.solicitudes)) {
+        let mig = false;
+        clean.solicitudes.forEach(s => {
+          if ((s.tipoFalla === 'Mantenimiento Preventivo' || (s.descripcion && s.descripcion.startsWith('[PLAN PREVENTIVO'))) && s.tipoSolicitud !== 'Preventivo') {
+            s.tipoSolicitud = 'Preventivo';
+            mig = true;
+          }
+        });
+        if (mig) {
+          mongoCollection.replaceOne({ _id: env }, { ...clean, _id: env }).catch(e => console.warn(e));
+        }
+      }
       return clean;
     } catch (err) {
       console.error('⚠️ Error cargando base de datos desde MongoDB:', err.message);
@@ -573,6 +585,18 @@ async function loadDatabase(targetEnv = null) {
     if (parsed.config) {
       if (!parsed.config.diasLaboralesSemana) parsed.config.diasLaboralesSemana = 6;
       if (parsed.config.horasTurnoDia === 24 || !parsed.config.horasTurnoDia) parsed.config.horasTurnoDia = 8;
+    }
+    if (Array.isArray(parsed.solicitudes)) {
+      let migLocal = false;
+      parsed.solicitudes.forEach(s => {
+        if ((s.tipoFalla === 'Mantenimiento Preventivo' || (s.descripcion && s.descripcion.startsWith('[PLAN PREVENTIVO'))) && s.tipoSolicitud !== 'Preventivo') {
+          s.tipoSolicitud = 'Preventivo';
+          migLocal = true;
+        }
+      });
+      if (migLocal) {
+        try { fs.writeFileSync(filePath, JSON.stringify(parsed, null, 2), 'utf8'); } catch (e) { console.warn(e); }
+      }
     }
     return parsed;
   } catch (err) {
@@ -834,8 +858,11 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST') {
       try {
         const body = await parseRequestBody(req);
-        const tipoSolicitud = body.tipoSolicitud === 'Requerimiento' ? 'Requerimiento' : 'Averia';
+        const tipoSolicitud = body.tipoSolicitud === 'Preventivo'
+          ? 'Preventivo'
+          : (body.tipoSolicitud === 'Requerimiento' ? 'Requerimiento' : 'Averia');
         const isRequerimiento = tipoSolicitud === 'Requerimiento';
+        const isPreventivo = tipoSolicitud === 'Preventivo';
         const equipoId = isRequerimiento ? null : (body.equipoId || null);
 
         if (!body.solicitante || !body.areaId || (!isRequerimiento && !body.equipoId) || !body.descripcion) {
@@ -855,13 +882,13 @@ const server = http.createServer(async (req, res) => {
         const newSolicitud = {
           id,
           folio: nextFolio,
-          tipoSolicitud, // 'Averia' | 'Requerimiento'
+          tipoSolicitud, // 'Averia' | 'Requerimiento' | 'Preventivo'
           fechaSolicitud: body.fechaSolicitud || getLocalNow(),
           solicitante: body.solicitante.trim(),
           turno: body.turno || 'Mañana',
           areaId: body.areaId,
           equipoId,
-          tipoFalla: body.tipoFalla || (isRequerimiento ? 'Servicios Generales' : 'Mecánica'),
+          tipoFalla: body.tipoFalla || (isRequerimiento ? 'Servicios Generales' : (isPreventivo ? 'Mantenimiento Preventivo' : 'Mecánica')),
           criticidad: body.criticidad || 'Media',
           descripcion: body.descripcion.trim(),
           estado: 'Pendiente',
@@ -872,7 +899,7 @@ const server = http.createServer(async (req, res) => {
           fechaInicio: null,
           fechaFin: null,
           horasParadaDecimal: 0,
-          horasParadaTexto: isRequerimiento ? 'No aplica (Operativo)' : 'Por iniciar',
+          horasParadaTexto: isRequerimiento ? 'No aplica (Operativo)' : (isPreventivo ? 'Mantenimiento Programado' : 'Por iniciar'),
           minutosParadaTotal: 0,
           horasAtencionDecimal: 0,
           horasAtencionTexto: 'Por iniciar',
@@ -941,7 +968,21 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/preventivos') {
     const db = await loadDatabase();
     if (req.method === 'GET') {
-      return sendJSON(res, 200, db.preventivos || []);
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      const preventivos = (db.preventivos || []).map(p => {
+        let estado = 'Al Día';
+        if (p.proximaFecha) {
+          const dateStr = p.proximaFecha.includes('T') ? p.proximaFecha : `${p.proximaFecha}T00:00:00`;
+          const prox = new Date(dateStr);
+          prox.setHours(0, 0, 0, 0);
+          const diffDays = Math.ceil((prox - hoy) / (1000 * 60 * 60 * 24));
+          if (diffDays < 0) estado = 'Vencido';
+          else if (diffDays <= 5) estado = 'Próximo';
+        }
+        return { ...p, estado };
+      });
+      return sendJSON(res, 200, preventivos);
     }
     if (req.method === 'POST') {
       try {

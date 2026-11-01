@@ -456,6 +456,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (helpText) {
           helpText.innerHTML = '📋 <strong>Requerimiento de Área:</strong> Trabajo general o servicio del área. <strong>NO computa parada de maquinaria</strong> (la planta sigue operando). Se computará como tiempo de atención.';
         }
+      } else if (tipo === 'Preventivo') {
+        if (groupEquipo) groupEquipo.style.display = 'block';
+        if (eqSel) {
+          eqSel.required = true;
+        }
+        if (lblDesc) lblDesc.innerHTML = 'Detalles del Servicio Preventivo Programado <span class="req">*</span>';
+        if (descInput) descInput.placeholder = 'Describa el mantenimiento preventivo, tareas planificadas, lubricación, ajuste o inspección...';
+        if (helpText) {
+          helpText.innerHTML = '📅 <strong>Mantenimiento Preventivo:</strong> Orden planificada en maquinaria. <strong>NO computa como avería imprevista</strong> de planta ni penaliza el MTBF.';
+        }
       } else {
         if (groupEquipo) groupEquipo.style.display = 'block';
         if (eqSel) {
@@ -488,7 +498,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (tipoFilter !== 'Todos') {
       solicitudes = solicitudes.filter(s => {
         const isReq = (s.tipoSolicitud === 'Requerimiento' || !s.equipoId);
-        return tipoFilter === 'Requerimiento' ? isReq : !isReq;
+        const isPrev = (s.tipoSolicitud === 'Preventivo' || s.tipoFalla === 'Mantenimiento Preventivo');
+        const isAv = (!isReq && !isPrev);
+        if (tipoFilter === 'Requerimiento') return isReq;
+        if (tipoFilter === 'Preventivo') return isPrev;
+        if (tipoFilter === 'Averia') return isAv;
+        return true;
       });
     }
     if (areaFilter !== 'Todas') solicitudes = solicitudes.filter(s => s.areaId === areaFilter);
@@ -530,10 +545,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       const eq = store.getEquipoById(s.equipoId);
       const tec = s.tecnicoId ? store.getEmpleadoById(s.tecnicoId) : null;
       const isReq = (s.tipoSolicitud === 'Requerimiento' || !s.equipoId);
+      const isPrev = (s.tipoSolicitud === 'Preventivo' || s.tipoFalla === 'Mantenimiento Preventivo');
 
-      const tipoBadge = isReq
-        ? `<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; font-weight:600;">📋 Requerimiento</span>`
-        : `<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:600;">🛠️ Avería</span>`;
+      let tipoBadge = `<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:600;">🛠️ Avería</span>`;
+      if (isReq) {
+        tipoBadge = `<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; font-weight:600;">📋 Requerimiento</span>`;
+      } else if (isPrev) {
+        tipoBadge = `<span class="badge" style="background:#f3e8ff; color:#7e22ce; border:1px solid #d8b4fe; font-weight:600;">📅 Preventivo</span>`;
+      }
 
       const equipoHtml = isReq
         ? `<span class="badge badge-outline" style="background:var(--bg-hover);">🏢 Área General</span><br><small class="text-muted">Sin equipo</small>`
@@ -561,7 +580,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       const tiempoTexto = s.estado === 'Culminada'
         ? (isReq
             ? `<strong style="color: #0284c7;">⏱️ ${s.horasAtencionTexto || s.horasParadaTexto || '0h 00m'}</strong><br><small class="text-muted">Atención Área (${s.horasAtencionDecimal || 0} hrs)</small>`
-            : `<strong class="text-danger">🛑 ${s.horasParadaTexto || '0h 00m'}</strong><br><small class="text-muted">Parada Equipo (${s.horasParadaDecimal || 0} hrs)</small>`)
+            : (isPrev
+                ? `<strong style="color: #7e22ce;">⏱️ ${s.horasAtencionTexto || s.horasParadaTexto || '0h 00m'}</strong><br><small class="text-muted">Servicio Programado (${s.horasAtencionDecimal || s.horasParadaDecimal || 0} hrs)</small>`
+                : `<strong class="text-danger">🛑 ${s.horasParadaTexto || '0h 00m'}</strong><br><small class="text-muted">Parada Equipo (${s.horasParadaDecimal || 0} hrs)</small>`))
         : (s.estado === 'Cancelada'
             ? '<span class="text-muted">Desestimada</span>'
             : (s.estado === 'Detenida'
@@ -643,7 +664,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (tipoFilter !== 'Todos') {
       solicitudes = solicitudes.filter(s => {
         const isReq = (s.tipoSolicitud === 'Requerimiento' || !s.equipoId);
-        return tipoFilter === 'Requerimiento' ? isReq : !isReq;
+        const isPrev = (s.tipoSolicitud === 'Preventivo' || s.tipoFalla === 'Mantenimiento Preventivo');
+        const isAv = (!isReq && !isPrev);
+        if (tipoFilter === 'Requerimiento') return isReq;
+        if (tipoFilter === 'Preventivo') return isPrev;
+        if (tipoFilter === 'Averia') return isAv;
+        return true;
       });
     }
     if (areaFilter !== 'Todas') solicitudes = solicitudes.filter(s => s.areaId === areaFilter);
@@ -682,10 +708,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       const eq = store.getEquipoById(s.equipoId);
       const tec = s.tecnicoId ? store.getEmpleadoById(s.tecnicoId) : null;
       const isReq = (s.tipoSolicitud === 'Requerimiento' || !s.equipoId);
+      const isPrev = (s.tipoSolicitud === 'Preventivo' || s.tipoFalla === 'Mantenimiento Preventivo');
 
-      const tipoBadge = isReq
-        ? `<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; font-weight:600;">📋 Requerimiento</span>`
-        : `<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:600;">🛠️ Avería</span>`;
+      let tipoBadge = `<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:600;">🛠️ Avería</span>`;
+      if (isReq) {
+        tipoBadge = `<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; font-weight:600;">📋 Requerimiento</span>`;
+      } else if (isPrev) {
+        tipoBadge = `<span class="badge" style="background:#f3e8ff; color:#7e22ce; border:1px solid #d8b4fe; font-weight:600;">📅 Preventivo</span>`;
+      }
 
       const equipoHtml = isReq
         ? `<span class="badge badge-outline" style="background:var(--bg-hover);">🏢 Área General</span><br><small class="text-muted">Sin equipo</small>`
@@ -717,7 +747,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (s.estado === 'Culminada') {
         horasHtml = isReq
           ? `<strong style="color: #0284c7;">⏱️ ${s.horasAtencionTexto || s.horasParadaTexto || '0h 00m'}</strong><br><small class="text-muted">Atención Área (${s.horasAtencionDecimal || 0} hrs)</small>`
-          : `<strong class="text-danger">🛑 ${s.horasParadaTexto || '0h 00m'}</strong><br><small class="text-muted">Parada (${s.horasParadaDecimal || 0} hrs)</small>`;
+          : (isPrev
+              ? `<strong style="color: #7e22ce;">⏱️ ${s.horasAtencionTexto || s.horasParadaTexto || '0h 00m'}</strong><br><small class="text-muted">Preventivo (${s.horasAtencionDecimal || s.horasParadaDecimal || 0} hrs)</small>`
+              : `<strong class="text-danger">🛑 ${s.horasParadaTexto || '0h 00m'}</strong><br><small class="text-muted">Parada (${s.horasParadaDecimal || 0} hrs)</small>`);
       } else if (s.estado === 'Detenida') {
         horasHtml = `<span style="color: #c2410c; font-weight: 600;">⏸️ Pausada</span><br><small class="text-muted">${s.fechaDetenimiento ? s.fechaDetenimiento.slice(5, 16) : ''}</small>`;
       } else if (s.estado === 'Cancelada') {
@@ -728,7 +760,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         const liveText = liveCalc && liveCalc.texto !== '0h 00m' ? ` (${liveCalc.texto})` : '';
         horasHtml = isReq
           ? `<span style="color: #0284c7; font-weight: 600;">⚙️ En atención${liveText}</span>`
-          : `<span class="text-warning">⚙️ En curso${liveText}</span>`;
+          : (isPrev
+              ? `<span style="color: #7e22ce; font-weight: 600;">⚙️ En ejecución${liveText}</span>`
+              : `<span class="text-warning">⚙️ En curso${liveText}</span>`);
+      } else if (isPrev && (s.estado === 'Pendiente' || s.estado === 'Asignada')) {
+        horasHtml = `<span style="color: #7e22ce; font-weight: 600;">📅 Programado</span>`;
       } else if (isReq && (s.estado === 'Pendiente' || s.estado === 'Asignada')) {
         const waitCalc = s.fechaSolicitud ? store.calcularHorasParada(s.fechaSolicitud, getLocalDateTimeString()) : null;
         const waitText = waitCalc && waitCalc.texto !== '0h 00m' ? `<br><small class="text-muted">${waitCalc.texto} esperando</small>` : '';
@@ -895,8 +931,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       preventivos = preventivos.filter(p => {
         const estadoActual = store.evaluarEstadoPreventivo(p.proximaFecha);
         const haSidoEjecutado = Boolean(
-          (p.vecesEjecutado && p.vecesEjecutado > 0) || 
-          (p.ultimaEjecucion && p.ultimaEjecucion !== '-' && p.ultimaEjecucion !== '')
+          (Number(p.vecesEjecutado) > 0) || 
+          Boolean(p.ultimaOTId)
         );
 
         if (estadoFilter === 'AlDia') {
@@ -981,8 +1017,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       const eq = store.getEquipoById(p.equipoId);
       const estadoActual = store.evaluarEstadoPreventivo(p.proximaFecha);
       const haSidoEjecutado = Boolean(
-        (p.vecesEjecutado && p.vecesEjecutado > 0) || 
-        (p.ultimaEjecucion && p.ultimaEjecucion !== '-' && p.ultimaEjecucion !== '')
+        (Number(p.vecesEjecutado) > 0) || 
+        Boolean(p.ultimaOTId)
       );
 
       let estadoBadge = `<span class="badge badge-prev-aldia">🟢 Al Día</span>`;
@@ -992,7 +1028,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       let ejecucionBadge = `<span class="badge badge-subtle" style="color:var(--text-muted); font-size:0.8rem;">⏳ Sin ejecutar</span>`;
       if (haSidoEjecutado) {
         const veces = p.vecesEjecutado ? ` (${p.vecesEjecutado}x)` : '';
-        ejecucionBadge = `<span class="badge badge-success" style="font-size:0.8rem; font-weight:600;">✅ ${p.ultimaEjecucion}${veces}</span>`;
+        const fechaTxt = (p.ultimaEjecucion && p.ultimaEjecucion !== '-') ? p.ultimaEjecucion : 'Ejecutado';
+        ejecucionBadge = `<span class="badge badge-success" style="font-size:0.8rem; font-weight:600;">✅ ${fechaTxt}${veces}</span>`;
       }
 
       let ejecutorPrev = '<span class="text-muted">Interno</span>';
@@ -1270,7 +1307,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('kpiCompletedCount').textContent = `${kpis.culminadasCount} de ${kpis.totalEfectivas || kpis.totalSolicitudes} cerradas${desestimadasSub}`;
 
     document.getElementById('kpiPrevCumplimiento').textContent = `${kpis.preventivos.cumplimiento}%`;
-    document.getElementById('kpiPrevSubtext').textContent = `${kpis.preventivos.alDia} de ${kpis.preventivos.total} planes al día`;
+    const vencidosInfo = kpis.preventivos.vencidos > 0 ? ` (${kpis.preventivos.vencidos} vencidos)` : '';
+    document.getElementById('kpiPrevSubtext').textContent = `${kpis.preventivos.alDia} de ${kpis.preventivos.total} ejecutados / al día${vencidosInfo}`;
 
     // 2. Gráficos Analíticos
     analytics.renderBarChartDowntime('chartDowntimeByEquipment', downtimeData, 6);
@@ -1516,8 +1554,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       const descripcion = document.getElementById('solDescripcion').value.trim();
 
       const isAveria = (tipoSolicitud === 'Averia');
-      if (!solicitante || !areaId || (isAveria && !equipoId) || !descripcion) {
-        showToast(isAveria ? 'Complete todos los campos obligatorios incluyendo el equipo.' : 'Complete todos los campos obligatorios.', 'error');
+      const isPrev = (tipoSolicitud === 'Preventivo');
+      const isReq = (tipoSolicitud === 'Requerimiento');
+      const requiereEquipo = !isReq;
+
+      if (!solicitante || !areaId || (requiereEquipo && !equipoId) || !descripcion) {
+        showToast(requiereEquipo ? 'Complete todos los campos obligatorios incluyendo el equipo.' : 'Complete todos los campos obligatorios.', 'error');
         return;
       }
 
@@ -1527,15 +1569,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         solicitante,
         turno,
         areaId,
-        equipoId: isAveria ? equipoId : null,
-        tipoFalla,
+        equipoId: requiereEquipo ? equipoId : null,
+        tipoFalla: isPrev ? 'Mantenimiento Preventivo' : tipoFalla,
         criticidad,
         descripcion
       });
 
       closeModal('modalNuevaSolicitud');
       resetNuevaSolicitudForm();
-      const tipoLabel = isAveria ? 'Avería de Equipo' : 'Requerimiento de Área';
+      const tipoLabel = isPrev ? 'Mantenimiento Preventivo' : (isAveria ? 'Avería de Equipo' : 'Requerimiento de Área');
       showToast(`Solicitud SOL-${String(nueva.folio).padStart(3, '0')} (${tipoLabel}) emitida con éxito. Mantenimiento fue notificado.`, 'success');
 
       renderProduccion();
@@ -1555,12 +1597,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('asigSolId').value = sol.id;
 
     const isReq = (sol.tipoSolicitud === 'Requerimiento' || !sol.equipoId);
+    const isPrev = (sol.tipoSolicitud === 'Preventivo' || sol.tipoFalla === 'Mantenimiento Preventivo');
     const area = store.getAreaById(sol.areaId);
     const eq = store.getEquipoById(sol.equipoId);
 
-    const tipoBadge = isReq
-      ? '<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; font-weight:600;">📋 Requerimiento de Área</span>'
-      : '<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:600;">🛠️ Avería de Equipo</span>';
+    let tipoBadge = '<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:600;">🛠️ Avería de Equipo</span>';
+    if (isReq) {
+      tipoBadge = '<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; font-weight:600;">📋 Requerimiento de Área</span>';
+    } else if (isPrev) {
+      tipoBadge = '<span class="badge" style="background:#f3e8ff; color:#7e22ce; border:1px solid #d8b4fe; font-weight:600;">📅 Mantenimiento Preventivo</span>';
+    }
 
     const targetDesc = isReq
       ? `Área: <strong>${area ? area.nombre : 'Área General'} (Sin equipo)</strong>`
@@ -1661,12 +1707,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.getElementById('iniciarSolId').value = sol.id;
     const isReq = (sol.tipoSolicitud === 'Requerimiento' || !sol.equipoId);
+    const isPrev = (sol.tipoSolicitud === 'Preventivo' || sol.tipoFalla === 'Mantenimiento Preventivo');
     const eq = store.getEquipoById(sol.equipoId);
     const area = store.getAreaById(sol.areaId);
 
-    const tipoBadge = isReq
-      ? '<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; font-weight:600;">📋 Requerimiento</span>'
-      : '<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:600;">🛠️ Avería</span>';
+    let tipoBadge = '<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:600;">🛠️ Avería</span>';
+    if (isReq) {
+      tipoBadge = '<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; font-weight:600;">📋 Requerimiento</span>';
+    } else if (isPrev) {
+      tipoBadge = '<span class="badge" style="background:#f3e8ff; color:#7e22ce; border:1px solid #d8b4fe; font-weight:600;">📅 Preventivo</span>';
+    }
 
     const targetDesc = isReq
       ? `Área: <strong>${area ? area.nombre : 'Área General'} (Sin equipo)</strong>`
@@ -1689,6 +1739,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const solId = document.getElementById('iniciarSolId').value;
     const sol = store.getSolicitudById(solId);
     const isReq = (sol && (sol.tipoSolicitud === 'Requerimiento' || !sol.equipoId));
+    const isPrev = (sol && (sol.tipoSolicitud === 'Preventivo' || sol.tipoFalla === 'Mantenimiento Preventivo'));
     const fechaInicio = document.getElementById('iniciarFechaHora').value;
     const notas = document.getElementById('iniciarNotas').value.trim();
 
@@ -1699,7 +1750,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     closeModal('modalIniciar');
-    showToast(isReq ? 'Atención al requerimiento iniciada.' : 'Intervención iniciada. Conteo de parada en curso.', 'success');
+    const toastMsg = isReq
+      ? 'Atención al requerimiento iniciada.'
+      : (isPrev
+          ? 'Mantenimiento Preventivo iniciado. Registro de tiempo en curso.'
+          : 'Intervención iniciada. Conteo de parada en curso.');
+    showToast(toastMsg, 'success');
     renderGerencia();
     renderProduccion();
     updateHeaderBadges();
@@ -1714,6 +1770,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.getElementById('detenerSolId').value = sol.id;
     const isReq = (sol.tipoSolicitud === 'Requerimiento' || !sol.equipoId);
+    const isPrev = (sol.tipoSolicitud === 'Preventivo' || sol.tipoFalla === 'Mantenimiento Preventivo');
     const eq = store.getEquipoById(sol.equipoId);
     const area = store.getAreaById(sol.areaId);
 
@@ -1721,9 +1778,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       ? `Área: <strong>${area ? area.nombre : 'Área General'} (Sin equipo)</strong>`
       : `Equipo: <strong>${eq ? eq.codigo : ''} - ${eq ? eq.nombre : ''}</strong>`;
 
+    const labelAsunto = isReq ? 'Requerimiento' : (isPrev ? 'Plan Preventivo' : 'Falla / Asunto');
     document.getElementById('detenerInfoSol').innerHTML = `
       Pausando OT: <strong>SOL-${String(sol.folio).padStart(3, '0')}</strong> | ${targetDesc}<br>
-      Falla / Asunto: <em>"${sol.descripcion}"</em>
+      ${labelAsunto}: <em>"${sol.descripcion}"</em>
     `;
 
     document.getElementById('detenerMotivo').value = sol.motivoDetenimiento || 'Compra de materiales';
@@ -1791,6 +1849,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.getElementById('cancelarSolId').value = sol.id;
     const isReq = (sol.tipoSolicitud === 'Requerimiento' || !sol.equipoId);
+    const isPrev = (sol.tipoSolicitud === 'Preventivo' || sol.tipoFalla === 'Mantenimiento Preventivo');
     const eq = store.getEquipoById(sol.equipoId);
     const area = store.getAreaById(sol.areaId);
 
@@ -1798,9 +1857,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       ? `Área: <strong>${area ? area.nombre : 'Área General'} (Sin equipo)</strong>`
       : `Equipo: <strong>${eq ? eq.codigo : ''} - ${eq ? eq.nombre : ''}</strong>`;
 
+    const labelAsunto = isReq ? 'Requerimiento' : (isPrev ? 'Plan Preventivo' : 'Falla / Asunto');
     document.getElementById('cancelarInfoSol').innerHTML = `
       Anulando Solicitud: <strong>SOL-${String(sol.folio).padStart(3, '0')}</strong> | ${targetDesc}<br>
-      Falla / Asunto: <em>"${sol.descripcion}"</em>
+      ${labelAsunto}: <em>"${sol.descripcion}"</em>
     `;
 
     document.getElementById('cancelarMotivo').value = sol.motivoCancelacion || 'Solicitud duplicada';
@@ -1875,6 +1935,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const solId = document.getElementById('culminarSolId')?.value;
     const sol = solId ? store.getSolicitudById(solId) : null;
     const isReq = sol ? (sol.tipoSolicitud === 'Requerimiento' || !sol.equipoId) : false;
+    const isPrev = sol ? (sol.tipoSolicitud === 'Preventivo' || sol.tipoFalla === 'Mantenimiento Preventivo') : false;
 
     const inicioStr = document.getElementById('culminarFechaInicio').value;
     const finStr = document.getElementById('culminarFechaFin').value;
@@ -1883,6 +1944,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (label) {
       if (isReq) {
         label.textContent = `${calc.texto} (${calc.decimal} hrs de atención)`;
+      } else if (isPrev) {
+        label.textContent = `${calc.texto} (${calc.decimal} hrs de servicio preventivo)`;
       } else {
         label.textContent = `${calc.texto} (${calc.decimal} hrs de parada)`;
       }
@@ -1895,6 +1958,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.getElementById('culminarSolId').value = sol.id;
     const isReq = (sol.tipoSolicitud === 'Requerimiento' || !sol.equipoId);
+    const isPrev = (sol.tipoSolicitud === 'Preventivo' || sol.tipoFalla === 'Mantenimiento Preventivo');
     const eq = store.getEquipoById(sol.equipoId);
     const area = store.getAreaById(sol.areaId);
 
@@ -1902,14 +1966,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (titleEl) {
       titleEl.innerHTML = isReq
         ? '<span>✅</span> Culminar Requerimiento de Área'
-        : '<span>✅</span> Culminar Intervención y Cierre de Parada';
+        : (isPrev
+            ? '<span>✅</span> Culminar Mantenimiento Preventivo'
+            : '<span>✅</span> Culminar Intervención y Cierre de Parada');
     }
 
     const lblInicio = document.getElementById('lblCulminarFechaInicio');
     if (lblInicio) {
       lblInicio.innerHTML = isReq
         ? 'Fecha y Hora de Inicio de Atención <span class="req">*</span>'
-        : 'Fecha y Hora de Inicio de Parada / Reparación <span class="req">*</span>';
+        : (isPrev
+            ? 'Fecha y Hora de Inicio del Mantenimiento <span class="req">*</span>'
+            : 'Fecha y Hora de Inicio de Parada / Reparación <span class="req">*</span>');
     }
 
     const btnSetSol = document.getElementById('btnSetFechaSolicitud');
@@ -1922,33 +1990,44 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (lblDowntime) {
       lblDowntime.textContent = isReq
         ? 'TIEMPO DE ATENCIÓN DEL REQUERIMIENTO:'
-        : 'TIEMPO TOTAL DE PARADA DEL EQUIPO (DOWNTIME):';
+        : (isPrev
+            ? 'TIEMPO INVERTIDO EN MANTENIMIENTO PREVENTIVO:'
+            : 'TIEMPO TOTAL DE PARADA DEL EQUIPO (DOWNTIME):');
     }
 
     const lblDiag = document.getElementById('lblCulminarDiagnostico');
     if (lblDiag) {
       lblDiag.innerHTML = isReq
         ? 'Diagnóstico / Alcance del Servicio <span class="req">*</span>'
-        : 'Diagnóstico Técnico de la Causa Raíz <span class="req">*</span>';
+        : (isPrev
+            ? 'Inspección y Hallazgos del Preventivo <span class="req">*</span>'
+            : 'Diagnóstico Técnico de la Causa Raíz <span class="req">*</span>');
     }
 
     const lblSol = document.getElementById('lblCulminarSolucion');
     if (lblSol) {
       lblSol.innerHTML = isReq
         ? 'Trabajos y Adecuaciones Realizadas <span class="req">*</span>'
-        : 'Acción Correctiva / Solución Ejecutada <span class="req">*</span>';
+        : (isPrev
+            ? 'Actividades Preventivas Realizadas <span class="req">*</span>'
+            : 'Acción Correctiva / Solución Ejecutada <span class="req">*</span>');
     }
 
     const btnSubmit = document.getElementById('btnSubmitCulminar');
     if (btnSubmit) {
       btnSubmit.textContent = isReq
         ? 'Guardar y Culminar Requerimiento'
-        : 'Guardar y Cerrar Parada';
+        : (isPrev
+            ? 'Guardar y Culminar Preventivo'
+            : 'Guardar y Cerrar Parada');
     }
 
-    const tipoBadge = isReq
-      ? '<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; font-weight:600;">📋 Requerimiento</span>'
-      : '<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:600;">🛠️ Avería</span>';
+    let tipoBadge = '<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:600;">🛠️ Avería</span>';
+    if (isReq) {
+      tipoBadge = '<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; font-weight:600;">📋 Requerimiento</span>';
+    } else if (isPrev) {
+      tipoBadge = '<span class="badge" style="background:#f3e8ff; color:#7e22ce; border:1px solid #d8b4fe; font-weight:600;">📅 Preventivo</span>';
+    }
 
     const targetDesc = isReq
       ? `Área: <strong>${area ? area.nombre : 'Área General'} (Sin equipo)</strong>`
@@ -2001,6 +2080,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!sol) return;
 
     const isReq = (sol.tipoSolicitud === 'Requerimiento' || !sol.equipoId);
+    const isPrev = (sol.tipoSolicitud === 'Preventivo' || sol.tipoFalla === 'Mantenimiento Preventivo');
     const fechaInicio = document.getElementById('culminarFechaInicio').value;
     const fechaFin = document.getElementById('culminarFechaFin').value;
     const diagnostico = document.getElementById('culminarDiagnostico').value.trim();
@@ -2027,6 +2107,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       patch.horasAtencionDecimal = calc.decimal;
       patch.horasAtencionTexto = calc.texto;
       patch.minutosAtencionTotal = calc.minutos;
+    } else if (isPrev) {
+      // El preventivo programado registra horas de servicio sin penalizar downtime por avería de máquina
+      patch.horasParadaDecimal = 0;
+      patch.horasParadaTexto = 'Mantenimiento Programado';
+      patch.minutosParadaTotal = 0;
+      patch.horasAtencionDecimal = calc.decimal;
+      patch.horasAtencionTexto = calc.texto;
+      patch.minutosAtencionTotal = calc.minutos;
     } else {
       patch.horasParadaDecimal = calc.decimal;
       patch.horasParadaTexto = calc.texto;
@@ -2045,7 +2133,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     closeModal('modalCulminar');
     const toastMsg = isReq
       ? `Requerimiento culminado: ${calc.texto} (${calc.decimal} hrs atención).`
-      : `Parada cerrada: ${calc.texto} (${calc.decimal} hrs parada de equipo).`;
+      : (isPrev
+          ? `Mantenimiento Preventivo culminado: ${calc.texto} (${calc.decimal} hrs servicio).`
+          : `Parada cerrada: ${calc.texto} (${calc.decimal} hrs parada de equipo).`);
     showToast(toastMsg, 'success');
 
     renderGerencia();
@@ -2067,10 +2157,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const cfg = store.getConfig();
     const moneda = cfg.moneda || '$';
     const isReq = (sol.tipoSolicitud === 'Requerimiento' || !sol.equipoId);
+    const isPrev = (sol.tipoSolicitud === 'Preventivo' || sol.tipoFalla === 'Mantenimiento Preventivo');
 
-    const tipoBadge = isReq
-      ? '<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; font-weight:600;">📋 Requerimiento de Área</span>'
-      : '<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:600;">🛠️ Avería de Equipo</span>';
+    let tipoBadge = '<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:600;">🛠️ Avería de Equipo</span>';
+    if (isReq) {
+      tipoBadge = '<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; font-weight:600;">📋 Requerimiento de Área</span>';
+    } else if (isPrev) {
+      tipoBadge = '<span class="badge" style="background:#f3e8ff; color:#7e22ce; border:1px solid #d8b4fe; font-weight:600;">📅 Mantenimiento Preventivo</span>';
+    }
 
     const equipoDetalle = isReq
       ? '<span class="badge badge-outline">🏢 Área General (Sin equipo asignado)</span>'
@@ -2086,12 +2180,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       ejecutorTexto = `👷 <strong>${tec.nombre}</strong> (${tec.especialidad})`;
     }
 
-    const tiempoSectionTitle = isReq ? 'Atención del Requerimiento' : 'Intervención Técnica y Tiempos de Parada';
+    let tiempoSectionTitle = 'Intervención Técnica y Tiempos de Parada';
+    if (isReq) tiempoSectionTitle = 'Atención del Requerimiento';
+    else if (isPrev) tiempoSectionTitle = 'Tiempos de Ejecución del Mantenimiento Preventivo';
+
     const tiempoSectionMetric = isReq
       ? `<div><strong>Tiempo de Atención:</strong> <strong style="color:#0284c7;">${sol.horasAtencionTexto || sol.horasParadaTexto || '0h 00m'}</strong> (${sol.horasAtencionDecimal || 0} hrs)</div>`
-      : `<div><strong>Tiempo Total Parada:</strong> <strong class="text-danger">${sol.horasParadaTexto || '0h 00m'}</strong> (${sol.horasParadaDecimal || 0} hrs)</div>`;
-    const inicioLabel = isReq ? 'Inicio Atención:' : 'Inicio Parada:';
-    const finLabel = isReq ? 'Fin Atención:' : 'Fin Parada:';
+      : (isPrev
+          ? `<div><strong>Tiempo Invertido:</strong> <strong style="color:#7e22ce;">${sol.horasAtencionTexto || sol.horasParadaTexto || '0h 00m'}</strong> (${sol.horasAtencionDecimal || sol.horasParadaDecimal || 0} hrs)</div>`
+          : `<div><strong>Tiempo Total Parada:</strong> <strong class="text-danger">${sol.horasParadaTexto || '0h 00m'}</strong> (${sol.horasParadaDecimal || 0} hrs)</div>`);
+    const inicioLabel = isReq ? 'Inicio Atención:' : (isPrev ? 'Inicio Mantenimiento:' : 'Inicio Parada:');
+    const finLabel = isReq ? 'Fin Atención:' : (isPrev ? 'Fin Mantenimiento:' : 'Fin Parada:');
 
     const html = `
       <div style="padding: 1rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--bg-surface);">
@@ -2119,7 +2218,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>
 
         <div style="margin-bottom: 1.25rem; padding: 0.75rem; background: var(--bg-subtle); border-radius: var(--radius-sm);">
-          <strong>${isReq ? 'Descripción del Requerimiento:' : 'Síntoma / Descripción Inicial:'}</strong>
+          <strong>${isReq ? 'Descripción del Requerimiento:' : (isPrev ? 'Alcance del Plan Preventivo:' : 'Síntoma / Descripción Inicial:')}</strong>
           <p style="margin-top: 0.25rem;">${sol.descripcion}</p>
         </div>
 
@@ -2155,14 +2254,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         ${sol.diagnostico ? `
           <div style="margin-bottom: 0.75rem;">
-            <strong>${isReq ? 'Diagnóstico / Alcance del Servicio:' : 'Diagnóstico de Causa Raíz:'}</strong>
+            <strong>${isReq ? 'Diagnóstico / Alcance del Servicio:' : (isPrev ? 'Inspección y Hallazgos:' : 'Diagnóstico de Causa Raíz:')}</strong>
             <p>${sol.diagnostico}</p>
           </div>
         ` : ''}
 
         ${sol.solucion ? `
           <div style="margin-bottom: 0.75rem;">
-            <strong>${isReq ? 'Trabajo Realizado:' : 'Acción Correctiva Ejecutada:'}</strong>
+            <strong>${isReq ? 'Trabajo Realizado:' : (isPrev ? 'Actividades Preventivas Realizadas:' : 'Acción Correctiva Ejecutada:')}</strong>
             <p>${sol.solucion}</p>
           </div>
         ` : ''}
